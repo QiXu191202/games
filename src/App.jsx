@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import './App.css';
-import { checkCollision, getSafePosition, willOverlap } from './hooks/useCollisionDetection';
+import { checkCollision, getSafePosition, willOverlap } from '@/hooks/useCollisionDetection';
+import getRandomCar from '@/hooks/randomCar';
 
 function App() {
   const canvasRef = useRef(null);
@@ -32,10 +33,15 @@ function App() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // 小方块的属性
+    // 小车图片
+    const carImagePath = getRandomCar();
     const width = 40;
     const height = 40;
     const speed = 3; // 减小移动速度
+
+    // 创建图片对象
+    const carImage = new Image();
+    carImage.src = carImagePath;
 
     // 碰撞提示标志
     let collisionAlerted = false;
@@ -57,6 +63,17 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+
+    // 等待图片加载完成后再开始动画
+    carImage.onload = () => {
+      animate();
+    };
+
+    carImage.onerror = () => {
+      console.error('小车图片加载失败，使用备用方案');
+      // 如果图片加载失败，使用简单的矩形作为备用
+      animate();
+    };
 
     const animate = () => {
       // 清除画布
@@ -138,15 +155,17 @@ function App() {
         obstacle.height
       );
 
-      // 绘制小方块
-      ctx.fillStyle = '#3B82F6';
-      ctx.fillRect(positionRef.current.x, positionRef.current.y, width, height);
+      // 绘制小车
+      if (carImage.complete && carImage.naturalWidth > 0) {
+        ctx.drawImage(carImage, positionRef.current.x, positionRef.current.y, width, height);
+      } else {
+        // 备用方案：绘制简单的矩形小车
+        ctx.fillStyle = '#3B82F6';
+        ctx.fillRect(positionRef.current.x, positionRef.current.y, width, height);
+      }
 
       animationRef.current = requestAnimationFrame(animate);
     };
-
-    // 开始动画
-    animate();
 
     // 清理函数
     return () => {
