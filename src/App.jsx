@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import './App.css';
+import { checkCollision } from './hooks/useCollisionDetection';
 
 function App() {
   const canvasRef = useRef(null);
@@ -74,29 +75,15 @@ function App() {
 
       // 碰撞检测和阻挡
       const obstacle = obstacleRef.current;
-      let willCollide = false;
+      const size = { width, height };
 
-      // 简化碰撞检测逻辑：先计算新位置，然后检查是否与障碍物碰撞
-      // 检查新位置是否会与障碍物碰撞
-      const newRect = {
-        left: newX,
-        right: newX + width,
-        top: newY,
-        bottom: newY + height
-      };
-
-      const obstacleRect = {
-        left: obstacle.x,
-        right: obstacle.x + obstacle.width,
-        top: obstacle.y,
-        bottom: obstacle.y + obstacle.height
-      };
-
-      // 检查新位置是否与障碍物重叠
-      willCollide = newRect.left < obstacleRect.right &&
-                   newRect.right > obstacleRect.left &&
-                   newRect.top < obstacleRect.bottom &&
-                   newRect.bottom > obstacleRect.top;
+      // 使用碰撞检测函数
+      const willCollide = checkCollision(
+        positionRef.current,
+        { x: newX, y: newY },
+        obstacle,
+        size
+      );
 
       // 如果会碰撞，则不更新位置
       if (willCollide) {
