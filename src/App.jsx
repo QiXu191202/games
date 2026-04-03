@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import './App.css';
-import { checkCollision } from './hooks/useCollisionDetection';
+import { checkCollision, getSafePosition, willOverlap } from './hooks/useCollisionDetection';
 
 function App() {
   const canvasRef = useRef(null);
@@ -21,6 +21,9 @@ function App() {
     width: 100,
     height: 30
   });
+
+  // 背景偏移量
+  const backgroundOffsetRef = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -59,15 +62,32 @@ function App() {
       // 清除画布
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      // 绘制道路背景
+      ctx.fillStyle = '#6B7280';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // 绘制道路标线
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 10]);
+      ctx.beginPath();
+      ctx.moveTo(canvas.width / 2, 0);
+      ctx.lineTo(canvas.width / 2, canvas.height);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
       // 从ref获取当前位置
       let newX = positionRef.current.x;
       let newY = positionRef.current.y;
 
-      // 根据按键更新位置
-      if (keysRef.current.ArrowUp) newY -= speed;
-      if (keysRef.current.ArrowDown) newY += speed;
-      if (keysRef.current.ArrowLeft) newX -= speed;
-      if (keysRef.current.ArrowRight) newX += speed;
+      // 保存当前的背景偏移
+      const oldBackgroundOffset = { ...backgroundOffsetRef.current };
+      
+      // 根据按键更新背景偏移量（方向相反）
+      if (keysRef.current.ArrowUp) backgroundOffsetRef.current.y -= speed; // 上键现在是向下移动
+      if (keysRef.current.ArrowDown) backgroundOffsetRef.current.y += speed; // 下键现在是向上移动
+      if (keysRef.current.ArrowLeft) backgroundOffsetRef.current.x -= speed; // 左键现在是向右移动
+      if (keysRef.current.ArrowRight) backgroundOffsetRef.current.x += speed; // 右键现在是向左移动
 
       // 边界检测
       newX = Math.max(0, Math.min(canvas.width - width, newX));
@@ -77,16 +97,26 @@ function App() {
       const obstacle = obstacleRef.current;
       const size = { width, height };
 
-      // 使用碰撞检测函数
+      // 考虑背景偏移的障碍物位置
+      const adjustedObstacle = {
+        ...obstacle,
+        x: obstacle.x - backgroundOffsetRef.current.x,
+        y: obstacle.y - backgroundOffsetRef.current.y
+      };
+
+      // 检查是否会碰撞
       const willCollide = checkCollision(
         positionRef.current,
         { x: newX, y: newY },
-        obstacle,
+        adjustedObstacle,
         size
       );
 
-      // 如果会碰撞，则不更新位置
+      // 如果会碰撞，恢复背景偏移并阻止移动
       if (willCollide) {
+        // 恢复背景偏移
+        backgroundOffsetRef.current = oldBackgroundOffset;
+        
         if (!collisionAlerted) {
           console.log('方块碰到了障碍物！');
           collisionAlerted = true;
@@ -99,9 +129,14 @@ function App() {
         setPosition({ x: newX, y: newY });
       }
 
-      // 绘制障碍物
+      // 绘制障碍物（考虑背景偏移）
       ctx.fillStyle = '#EF4444';
-      ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+      ctx.fillRect(
+        obstacle.x - backgroundOffsetRef.current.x,
+        obstacle.y - backgroundOffsetRef.current.y,
+        obstacle.width,
+        obstacle.height
+      );
 
       // 绘制小方块
       ctx.fillStyle = '#3B82F6';
