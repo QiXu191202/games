@@ -13,6 +13,14 @@ function App() {
   });
   const positionRef = useRef({ x: 180, y: 500 });
 
+  // 障碍物状态
+  const obstacleRef = useRef({
+    x: 150,
+    y: 300,
+    width: 100,
+    height: 30
+  });
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -23,7 +31,10 @@ function App() {
     // 小方块的属性
     const width = 40;
     const height = 40;
-    const speed = 5;
+    const speed = 3; // 减小移动速度
+
+    // 碰撞提示标志
+    let collisionAlerted = false;
 
     // 键盘事件监听
     const handleKeyDown = (e) => {
@@ -61,15 +72,53 @@ function App() {
       newX = Math.max(0, Math.min(canvas.width - width, newX));
       newY = Math.max(0, Math.min(canvas.height - height, newY));
 
-      // 更新ref中的位置
-      positionRef.current = { x: newX, y: newY };
+      // 碰撞检测和阻挡
+      const obstacle = obstacleRef.current;
+      let willCollide = false;
 
-      // 更新state（用于触发重绘）
-      setPosition({ x: newX, y: newY });
+      // 简化碰撞检测逻辑：先计算新位置，然后检查是否与障碍物碰撞
+      // 检查新位置是否会与障碍物碰撞
+      const newRect = {
+        left: newX,
+        right: newX + width,
+        top: newY,
+        bottom: newY + height
+      };
+
+      const obstacleRect = {
+        left: obstacle.x,
+        right: obstacle.x + obstacle.width,
+        top: obstacle.y,
+        bottom: obstacle.y + obstacle.height
+      };
+
+      // 检查新位置是否与障碍物重叠
+      willCollide = newRect.left < obstacleRect.right &&
+                   newRect.right > obstacleRect.left &&
+                   newRect.top < obstacleRect.bottom &&
+                   newRect.bottom > obstacleRect.top;
+
+      // 如果会碰撞，则不更新位置
+      if (willCollide) {
+        if (!collisionAlerted) {
+          console.log('方块碰到了障碍物！');
+          collisionAlerted = true;
+        }
+      } else {
+        collisionAlerted = false; // 重置提示标志
+        // 更新ref中的位置
+        positionRef.current = { x: newX, y: newY };
+        // 更新state（用于触发重绘）
+        setPosition({ x: newX, y: newY });
+      }
+
+      // 绘制障碍物
+      ctx.fillStyle = '#EF4444';
+      ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
 
       // 绘制小方块
       ctx.fillStyle = '#3B82F6';
-      ctx.fillRect(newX, newY, width, height);
+      ctx.fillRect(positionRef.current.x, positionRef.current.y, width, height);
 
       animationRef.current = requestAnimationFrame(animate);
     };
