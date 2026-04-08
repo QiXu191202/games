@@ -9,79 +9,105 @@ const SPEED = 5;
 const OBSTACLE_COLOR = '#EF4444';
 const REWARD_COLOR = '#22C55E';
 
-function generateObstacles(count, excludeArea) {
+function generateObstacles(count, centerX, centerY, excludeRadius = 100) {
   const obstacles = [];
   const padding = 20;
   const minSize = 40;
-  const maxSize = 80;
+  const maxSize = 60;
 
   for (let i = 0; i < count; i++) {
+    let placed = false;
     let attempts = 0;
-    let newObstacle;
 
-    do {
+    while (!placed && attempts < 100) {
       const width = minSize + Math.random() * (maxSize - minSize);
       const height = minSize + Math.random() * (maxSize - minSize);
-      newObstacle = {
-        x: padding + Math.random() * (GAME_WIDTH - width - padding * 2),
-        y: padding + Math.random() * (GAME_HEIGHT - height - padding * 2),
-        width,
-        height,
-        id: `obstacle-${i}-${Date.now()}`
-      };
-      attempts++;
-    } while (
-      attempts < 50 &&
-      (isOverlapping(newObstacle, excludeArea) || obstacles.some(o => isOverlapping(newObstacle, o)))
-    );
+      
+      let x, y;
+      const side = Math.floor(Math.random() * 4);
+      
+      switch (side) {
+        case 0:
+          x = padding + Math.random() * (GAME_WIDTH - width - padding * 2);
+          y = padding + Math.random() * 150;
+          break;
+        case 1:
+          x = padding + Math.random() * (GAME_WIDTH - width - padding * 2);
+          y = GAME_HEIGHT - padding - height - Math.random() * 150;
+          break;
+        case 2:
+          x = padding + Math.random() * 150;
+          y = padding + Math.random() * (GAME_HEIGHT - height - padding * 2);
+          break;
+        case 3:
+          x = GAME_WIDTH - padding - width - Math.random() * 150;
+          y = padding + Math.random() * (GAME_HEIGHT - height - padding * 2);
+          break;
+      }
 
-    if (attempts < 50) {
-      obstacles.push(newObstacle);
+      const newObstacle = { x, y, width, height, id: `obstacle-${i}-${Date.now()}` };
+
+      const distToCenter = Math.sqrt(
+        Math.pow(x + width / 2 - centerX, 2) +
+        Math.pow(y + height / 2 - centerY, 2)
+      );
+
+      if (distToCenter > excludeRadius) {
+        const overlaps = obstacles.some(o => 
+          !(x + width < o.x || x > o.x + o.width || y + height < o.y || y > o.y + o.height)
+        );
+
+        if (!overlaps) {
+          obstacles.push(newObstacle);
+          placed = true;
+        }
+      }
+      attempts++;
     }
   }
 
   return obstacles;
 }
 
-function generateRewards(count, obstacles, excludeArea) {
+function generateRewards(count, obstacles, centerX, centerY) {
   const rewards = [];
   const rewardSize = 30;
   const padding = 20;
 
   for (let i = 0; i < count; i++) {
+    let placed = false;
     let attempts = 0;
-    let newReward;
 
-    do {
-      newReward = {
-        x: padding + Math.random() * (GAME_WIDTH - rewardSize - padding * 2),
-        y: padding + Math.random() * (GAME_HEIGHT - rewardSize - padding * 2),
-        size: rewardSize,
-        id: `reward-${i}-${Date.now()}`
-      };
+    while (!placed && attempts < 100) {
+      const x = padding + Math.random() * (GAME_WIDTH - rewardSize - padding * 2);
+      const y = padding + Math.random() * (GAME_HEIGHT - rewardSize - padding * 2);
+
+      const newReward = { x, y, size: rewardSize, id: `reward-${i}-${Date.now()}` };
+
+      const distToCenter = Math.sqrt(
+        Math.pow(x + rewardSize / 2 - centerX, 2) +
+        Math.pow(y + rewardSize / 2 - centerY, 2)
+      );
+
+      if (distToCenter > 80 && distToCenter < 250) {
+        const overlapsObstacle = obstacles.some(o =>
+          !(x + rewardSize < o.x || x > o.x + o.width || y + rewardSize < o.y || y > o.y + o.height)
+        );
+
+        const overlapsReward = rewards.some(r =>
+          !(x + rewardSize < r.x || x > r.x + r.size || y + rewardSize < r.y || y > r.y + r.size)
+        );
+
+        if (!overlapsObstacle && !overlapsReward) {
+          rewards.push(newReward);
+          placed = true;
+        }
+      }
       attempts++;
-    } while (
-      attempts < 50 &&
-      (isOverlapping(newReward, excludeArea) ||
-       obstacles.some(o => isOverlapping(newReward, o)) ||
-       rewards.some(r => isOverlapping(newReward, r)))
-    );
-
-    if (attempts < 50) {
-      rewards.push(newReward);
     }
   }
 
   return rewards;
-}
-
-function isOverlapping(a, b) {
-  return !(
-    a.x + (a.width || a.size) < b.x ||
-    b.x + b.width < a.x ||
-    a.y + (a.height || a.size) < b.y ||
-    b.y + b.height < a.y
-  );
 }
 
 function checkRectCollision(rect1, rect2) {
@@ -111,7 +137,11 @@ function App() {
     ArrowUp: false,
     ArrowDown: false,
     ArrowLeft: false,
-    ArrowRight: false
+    ArrowRight: false,
+    KeyW: false,
+    KeyS: false,
+    KeyA: false,
+    KeyD: false
   });
 
   const obstaclesRef = useRef([]);
@@ -120,6 +150,7 @@ function App() {
   const collectedRewardsRef = useRef(new Set());
   const gameStateRef = useRef('playing');
   const scoreRef = useRef(0);
+  const initializedRef = useRef(false);
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -137,12 +168,24 @@ function App() {
     scoreRef.current = 0;
     setScore(0);
 
-    const obstacles = generateObstacles(8, { x: car.x, y: car.y, width: car.width, height: car.height });
-    const rewards = generateRewards(5, obstacles, { x: car.x, y: car.y, width: car.width, height: car.height });
+    const obstacles = generateObstacles(8, car.x, car.y);
+    const rewards = generateRewards(5, obstacles, car.x, car.y);
     obstaclesRef.current = obstacles;
     rewardsRef.current = rewards;
     gameStateRef.current = 'playing';
     setGameState('playing');
+    initializedRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!initializedRef.current) {
+      const car = carRef.current;
+      const obstacles = generateObstacles(8, car.x, car.y);
+      const rewards = generateRewards(5, obstacles, car.x, car.y);
+      obstaclesRef.current = obstacles;
+      rewardsRef.current = rewards;
+      initializedRef.current = true;
+    }
   }, []);
 
   useEffect(() => {
@@ -157,15 +200,15 @@ function App() {
     carImage.src = carImagePath;
 
     const handleKeyDown = (e) => {
-      if (Object.hasOwn(keysRef.current, e.key)) {
-        keysRef.current[e.key] = true;
+      if (Object.hasOwn(keysRef.current, e.code)) {
+        keysRef.current[e.code] = true;
         e.preventDefault();
       }
     };
 
     const handleKeyUp = (e) => {
-      if (Object.hasOwn(keysRef.current, e.key)) {
-        keysRef.current[e.key] = false;
+      if (Object.hasOwn(keysRef.current, e.code)) {
+        keysRef.current[e.code] = false;
         e.preventDefault();
       }
     };
@@ -230,12 +273,20 @@ function App() {
       ctx.stroke();
       ctx.setLineDash([]);
 
-      if (keysRef.current.ArrowUp) backgroundOffsetRef.current.y -= SPEED;
-      if (keysRef.current.ArrowDown) backgroundOffsetRef.current.y += SPEED;
-      if (keysRef.current.ArrowLeft) backgroundOffsetRef.current.x -= SPEED;
-      if (keysRef.current.ArrowRight) backgroundOffsetRef.current.x += SPEED;
+      const oldOffset = { ...backgroundOffsetRef.current };
+
+      const upPressed = keysRef.current.ArrowUp || keysRef.current.KeyW;
+      const downPressed = keysRef.current.ArrowDown || keysRef.current.KeyS;
+      const leftPressed = keysRef.current.ArrowLeft || keysRef.current.KeyA;
+      const rightPressed = keysRef.current.ArrowRight || keysRef.current.KeyD;
+
+      if (upPressed) backgroundOffsetRef.current.y -= SPEED;
+      if (downPressed) backgroundOffsetRef.current.y += SPEED;
+      if (leftPressed) backgroundOffsetRef.current.x -= SPEED;
+      if (rightPressed) backgroundOffsetRef.current.x += SPEED;
 
       const car = carRef.current;
+      let collision = false;
 
       obstaclesRef.current.forEach(obstacle => {
         const adjustedX = obstacle.x - backgroundOffsetRef.current.x;
@@ -247,50 +298,51 @@ function App() {
           ctx.fillRect(adjustedX, adjustedY, obstacle.width, obstacle.height);
         }
 
-        const carScreenX = car.x;
-        const carScreenY = car.y;
-
         if (checkRectCollision(
-          { x: carScreenX, y: carScreenY, width: car.width, height: car.height },
+          { x: car.x, y: car.y, width: car.width, height: car.height },
           { x: adjustedX, y: adjustedY, width: obstacle.width, height: obstacle.height }
         )) {
-          gameStateRef.current = 'gameover';
-          setGameState('gameover');
+          collision = true;
         }
       });
 
-      rewardsRef.current.forEach(reward => {
-        if (collectedRewardsRef.current.has(reward.id)) return;
+      if (collision) {
+        backgroundOffsetRef.current = oldOffset;
+        gameStateRef.current = 'gameover';
+        setGameState('gameover');
+      }
 
-        const adjustedX = reward.x - backgroundOffsetRef.current.x;
-        const adjustedY = reward.y - backgroundOffsetRef.current.y;
+      if (!collision) {
+        rewardsRef.current.forEach(reward => {
+          if (collectedRewardsRef.current.has(reward.id)) return;
 
-        if (adjustedX > -reward.size && adjustedX < canvas.width &&
-            adjustedY > -reward.size && adjustedY < canvas.height) {
-          ctx.fillStyle = REWARD_COLOR;
-          ctx.beginPath();
-          ctx.arc(adjustedX + reward.size / 2, adjustedY + reward.size / 2, reward.size / 2, 0, Math.PI * 2);
-          ctx.fill();
+          const adjustedX = reward.x - backgroundOffsetRef.current.x;
+          const adjustedY = reward.y - backgroundOffsetRef.current.y;
 
-          ctx.fillStyle = '#FFFFFF';
-          ctx.font = 'bold 16px Arial';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('+', adjustedX + reward.size / 2, adjustedY + reward.size / 2);
-        }
+          if (adjustedX > -reward.size && adjustedX < canvas.width &&
+              adjustedY > -reward.size && adjustedY < canvas.height) {
+            ctx.fillStyle = REWARD_COLOR;
+            ctx.beginPath();
+            ctx.arc(adjustedX + reward.size / 2, adjustedY + reward.size / 2, reward.size / 2, 0, Math.PI * 2);
+            ctx.fill();
 
-        const carScreenX = car.x;
-        const carScreenY = car.y;
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('+', adjustedX + reward.size / 2, adjustedY + reward.size / 2);
+          }
 
-        if (checkRectCollision(
-          { x: carScreenX, y: carScreenY, width: car.width, height: car.height },
-          { x: adjustedX, y: adjustedY, width: reward.size, height: reward.size }
-        )) {
-          collectedRewardsRef.current.add(reward.id);
-          scoreRef.current += 10;
-          setScore(scoreRef.current);
-        }
-      });
+          if (checkRectCollision(
+            { x: car.x, y: car.y, width: car.width, height: car.height },
+            { x: adjustedX, y: adjustedY, width: reward.size, height: reward.size }
+          )) {
+            collectedRewardsRef.current.add(reward.id);
+            scoreRef.current += 10;
+            setScore(scoreRef.current);
+          }
+        });
+      }
 
       if (carImage.complete && carImage.naturalWidth > 0) {
         ctx.drawImage(carImage, car.x, car.y, car.width, car.height);
@@ -302,8 +354,12 @@ function App() {
       animationRef.current = requestAnimationFrame(animate);
     };
 
-    carImage.onload = () => animate();
-    carImage.onerror = () => animate();
+    carImage.onload = () => {
+      if (initializedRef.current) animate();
+    };
+    carImage.onerror = () => {
+      if (initializedRef.current) animate();
+    };
 
     return () => {
       if (animationRef.current) {
