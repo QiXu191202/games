@@ -6,7 +6,7 @@ const GAME_WIDTH = 400;
 const GAME_HEIGHT = 600;
 const CAR_SIZE = 40;
 const CAR_SPEED = 4;
-const SCROLL_SPEED = 3;
+const SCROLL_SPEED = 2;
 const OBSTACLE_COLOR = '#EF4444';
 const REWARD_COLOR = '#22C55E';
 
