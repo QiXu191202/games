@@ -63,30 +63,18 @@ function drawRoad(ctx, width, height, offset) {
   }
 }
 
-function drawBrickWall(ctx, obstacle) {
-  const pattern = ctx.createPattern(wallImage, 'repeat');
-  if (pattern) {
-    ctx.save();
-    ctx.translate(obstacle.x, obstacle.y);
-    ctx.fillStyle = pattern;
-    ctx.fillRect(0, 0, obstacle.width, obstacle.height);
-
-    ctx.strokeStyle = '#8B7355';
-    ctx.lineWidth = 1;
-
-    const brickWidth = 24;
-    const brickHeight = obstacle.height;
-    for (let x = 0; x <= obstacle.width; x += brickWidth) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, brickHeight);
-      ctx.stroke();
-    }
-
-    ctx.restore();
-  } else {
-    ctx.fillStyle = '#8B4513';
-    ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+function drawBrickWallFallback(ctx, obstacle) {
+  ctx.fillStyle = '#8B4513';
+  ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+  ctx.strokeStyle = '#6B3510';
+  ctx.lineWidth = 1;
+  const brickWidth = 24;
+  const brickHeight = obstacle.height;
+  for (let x = 0; x <= obstacle.width; x += brickWidth) {
+    ctx.beginPath();
+    ctx.moveTo(x, obstacle.y);
+    ctx.lineTo(x, obstacle.y + brickHeight);
+    ctx.stroke();
   }
 }
 
@@ -102,13 +90,38 @@ function App() {
   const moveStateRef = useRef({ up: false, down: false, left: false, right: false });
   const gameActiveRef = useRef(false);
   const roadOffsetRef = useRef(0);
-
   const wallImageRef = useRef(null);
 
   const { reset: resetObjects, update: updateObjects } = useGameObjects();
   const { score, start, pause, resume, reset: resetTimer, addScore, triggerGameOver, formattedTime } = useGameTimer();
 
   const [gameState, setGameState] = useState('idle');
+
+  const drawBrickWall = useCallback((ctx, obstacle) => {
+    const wallImg = wallImageRef.current;
+    if (wallImg && wallImg.complete && wallImg.naturalWidth > 0) {
+      const pattern = ctx.createPattern(wallImg, 'repeat');
+      if (pattern) {
+        ctx.save();
+        ctx.translate(obstacle.x, obstacle.y);
+        ctx.fillStyle = pattern;
+        ctx.fillRect(0, 0, obstacle.width, obstacle.height);
+        ctx.strokeStyle = '#8B7355';
+        ctx.lineWidth = 1;
+        const brickWidth = 24;
+        const brickHeight = obstacle.height;
+        for (let x = 0; x <= obstacle.width; x += brickWidth) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, brickHeight);
+          ctx.stroke();
+        }
+        ctx.restore();
+        return;
+      }
+    }
+    drawBrickWallFallback(ctx, obstacle);
+  }, []);
 
   const handleMove = useCallback((state) => {
     moveStateRef.current = state;
@@ -249,7 +262,7 @@ function App() {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [updateObjects, handleCollectReward, triggerGameOver]);
+  }, [drawBrickWall, updateObjects, handleCollectReward, triggerGameOver]);
 
   return (
     <>
