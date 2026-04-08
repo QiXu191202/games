@@ -1,30 +1,149 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import './App.css';
-import { checkCollision, getSafePosition, willOverlap } from '@/hooks/useCollisionDetection';
 import getRandomCar from '@/hooks/randomCar';
+
+const GAME_WIDTH = 400;
+const GAME_HEIGHT = 600;
+const CAR_SIZE = 40;
+const SPEED = 5;
+const OBSTACLE_COLOR = '#EF4444';
+const REWARD_COLOR = '#22C55E';
+
+function generateObstacles(count, excludeArea) {
+  const obstacles = [];
+  const padding = 20;
+  const minSize = 40;
+  const maxSize = 80;
+
+  for (let i = 0; i < count; i++) {
+    let attempts = 0;
+    let newObstacle;
+
+    do {
+      const width = minSize + Math.random() * (maxSize - minSize);
+      const height = minSize + Math.random() * (maxSize - minSize);
+      newObstacle = {
+        x: padding + Math.random() * (GAME_WIDTH - width - padding * 2),
+        y: padding + Math.random() * (GAME_HEIGHT - height - padding * 2),
+        width,
+        height,
+        id: `obstacle-${i}-${Date.now()}`
+      };
+      attempts++;
+    } while (
+      attempts < 50 &&
+      (isOverlapping(newObstacle, excludeArea) || obstacles.some(o => isOverlapping(newObstacle, o)))
+    );
+
+    if (attempts < 50) {
+      obstacles.push(newObstacle);
+    }
+  }
+
+  return obstacles;
+}
+
+function generateRewards(count, obstacles, excludeArea) {
+  const rewards = [];
+  const rewardSize = 30;
+  const padding = 20;
+
+  for (let i = 0; i < count; i++) {
+    let attempts = 0;
+    let newReward;
+
+    do {
+      newReward = {
+        x: padding + Math.random() * (GAME_WIDTH - rewardSize - padding * 2),
+        y: padding + Math.random() * (GAME_HEIGHT - rewardSize - padding * 2),
+        size: rewardSize,
+        id: `reward-${i}-${Date.now()}`
+      };
+      attempts++;
+    } while (
+      attempts < 50 &&
+      (isOverlapping(newReward, excludeArea) ||
+       obstacles.some(o => isOverlapping(newReward, o)) ||
+       rewards.some(r => isOverlapping(newReward, r)))
+    );
+
+    if (attempts < 50) {
+      rewards.push(newReward);
+    }
+  }
+
+  return rewards;
+}
+
+function isOverlapping(a, b) {
+  return !(
+    a.x + (a.width || a.size) < b.x ||
+    b.x + b.width < a.x ||
+    a.y + (a.height || a.size) < b.y ||
+    b.y + b.height < a.y
+  );
+}
+
+function checkRectCollision(rect1, rect2) {
+  return (
+    rect1.x < rect2.x + rect2.width &&
+    rect1.x + rect1.width > rect2.x &&
+    rect1.y < rect2.y + rect2.height &&
+    rect1.y + rect1.height > rect2.y
+  );
+}
 
 function App() {
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
-  const [position, setPosition] = useState({ x: 180, y: 500 });
+  const touchStartRef = useRef(null);
+  const [score, setScore] = useState(0);
+  const [gameState, setGameState] = useState('playing');
+
+  const carRef = useRef({
+    x: 180,
+    y: 500,
+    width: CAR_SIZE,
+    height: CAR_SIZE
+  });
+
   const keysRef = useRef({
     ArrowUp: false,
     ArrowDown: false,
     ArrowLeft: false,
     ArrowRight: false
   });
-  const positionRef = useRef({ x: 180, y: 500 });
 
-  // 障碍物状态
-  const obstacleRef = useRef({
-    x: 150,
-    y: 300,
-    width: 100,
-    height: 30
-  });
-
-  // 背景偏移量
+  const obstaclesRef = useRef([]);
+  const rewardsRef = useRef([]);
   const backgroundOffsetRef = useRef({ x: 0, y: 0 });
+  const collectedRewardsRef = useRef(new Set());
+  const gameStateRef = useRef('playing');
+  const scoreRef = useRef(0);
+
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
+
+  useEffect(() => {
+    scoreRef.current = score;
+  }, [score]);
+
+  const resetGame = useCallback(() => {
+    const car = { x: 180, y: 500, width: CAR_SIZE, height: CAR_SIZE };
+    carRef.current = car;
+    backgroundOffsetRef.current = { x: 0, y: 0 };
+    collectedRewardsRef.current = new Set();
+    scoreRef.current = 0;
+    setScore(0);
+
+    const obstacles = generateObstacles(8, { x: car.x, y: car.y, width: car.width, height: car.height });
+    const rewards = generateRewards(5, obstacles, { x: car.x, y: car.y, width: car.width, height: car.height });
+    obstaclesRef.current = obstacles;
+    rewardsRef.current = rewards;
+    gameStateRef.current = 'playing';
+    setGameState('playing');
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -33,57 +152,75 @@ function App() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // 小车图片
     const carImagePath = getRandomCar();
-    const width = 40;
-    const height = 40;
-    const speed = 3; // 减小移动速度
-
-    // 创建图片对象
     const carImage = new Image();
     carImage.src = carImagePath;
 
-    // 碰撞提示标志
-    let collisionAlerted = false;
-
-    // 键盘事件监听
     const handleKeyDown = (e) => {
-      if (keysRef.current.hasOwnProperty(e.key)) {
+      if (Object.hasOwn(keysRef.current, e.key)) {
         keysRef.current[e.key] = true;
         e.preventDefault();
       }
     };
 
     const handleKeyUp = (e) => {
-      if (keysRef.current.hasOwnProperty(e.key)) {
+      if (Object.hasOwn(keysRef.current, e.key)) {
         keysRef.current[e.key] = false;
         e.preventDefault();
       }
     };
 
+    const handleTouchStart = (e) => {
+      if (gameStateRef.current !== 'playing') {
+        resetGame();
+        return;
+      }
+      const touch = e.touches[0];
+      touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    };
+
+    const handleTouchMove = (e) => {
+      e.preventDefault();
+      if (!touchStartRef.current || gameStateRef.current !== 'playing') return;
+
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - touchStartRef.current.x;
+      const deltaY = touch.clientY - touchStartRef.current.y;
+
+      const threshold = 10;
+      keysRef.current.ArrowRight = deltaX > threshold;
+      keysRef.current.ArrowLeft = deltaX < -threshold;
+      keysRef.current.ArrowDown = deltaY > threshold;
+      keysRef.current.ArrowUp = deltaY < -threshold;
+
+      touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    };
+
+    const handleTouchEnd = () => {
+      keysRef.current.ArrowUp = false;
+      keysRef.current.ArrowDown = false;
+      keysRef.current.ArrowLeft = false;
+      keysRef.current.ArrowRight = false;
+      touchStartRef.current = null;
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
-
-    // 等待图片加载完成后再开始动画
-    carImage.onload = () => {
-      animate();
-    };
-
-    carImage.onerror = () => {
-      console.error('小车图片加载失败，使用备用方案');
-      // 如果图片加载失败，使用简单的矩形作为备用
-      animate();
-    };
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+    canvas.addEventListener('touchend', handleTouchEnd);
 
     const animate = () => {
-      // 清除画布
+      if (gameStateRef.current === 'gameover') {
+        animationRef.current = requestAnimationFrame(animate);
+        return;
+      }
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // 绘制道路背景
       ctx.fillStyle = '#6B7280';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // 绘制道路标线
       ctx.strokeStyle = '#FFFFFF';
       ctx.lineWidth = 2;
       ctx.setLineDash([10, 10]);
@@ -93,99 +230,114 @@ function App() {
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // 从ref获取当前位置
-      let newX = positionRef.current.x;
-      let newY = positionRef.current.y;
+      if (keysRef.current.ArrowUp) backgroundOffsetRef.current.y -= SPEED;
+      if (keysRef.current.ArrowDown) backgroundOffsetRef.current.y += SPEED;
+      if (keysRef.current.ArrowLeft) backgroundOffsetRef.current.x -= SPEED;
+      if (keysRef.current.ArrowRight) backgroundOffsetRef.current.x += SPEED;
 
-      // 保存当前的背景偏移
-      const oldBackgroundOffset = { ...backgroundOffsetRef.current };
-      
-      // 根据按键更新背景偏移量（方向相反）
-      if (keysRef.current.ArrowUp) backgroundOffsetRef.current.y -= speed; // 上键现在是向下移动
-      if (keysRef.current.ArrowDown) backgroundOffsetRef.current.y += speed; // 下键现在是向上移动
-      if (keysRef.current.ArrowLeft) backgroundOffsetRef.current.x -= speed; // 左键现在是向右移动
-      if (keysRef.current.ArrowRight) backgroundOffsetRef.current.x += speed; // 右键现在是向左移动
+      const car = carRef.current;
 
-      // 边界检测
-      newX = Math.max(0, Math.min(canvas.width - width, newX));
-      newY = Math.max(0, Math.min(canvas.height - height, newY));
+      obstaclesRef.current.forEach(obstacle => {
+        const adjustedX = obstacle.x - backgroundOffsetRef.current.x;
+        const adjustedY = obstacle.y - backgroundOffsetRef.current.y;
 
-      // 碰撞检测和阻挡
-      const obstacle = obstacleRef.current;
-      const size = { width, height };
-
-      // 考虑背景偏移的障碍物位置
-      const adjustedObstacle = {
-        ...obstacle,
-        x: obstacle.x - backgroundOffsetRef.current.x,
-        y: obstacle.y - backgroundOffsetRef.current.y
-      };
-
-      // 检查是否会碰撞
-      const willCollide = checkCollision(
-        positionRef.current,
-        { x: newX, y: newY },
-        adjustedObstacle,
-        size
-      );
-
-      // 如果会碰撞，恢复背景偏移并阻止移动
-      if (willCollide) {
-        // 恢复背景偏移
-        backgroundOffsetRef.current = oldBackgroundOffset;
-        
-        if (!collisionAlerted) {
-          console.log('方块碰到了障碍物！');
-          collisionAlerted = true;
+        if (adjustedX > -obstacle.width && adjustedX < canvas.width &&
+            adjustedY > -obstacle.height && adjustedY < canvas.height) {
+          ctx.fillStyle = OBSTACLE_COLOR;
+          ctx.fillRect(adjustedX, adjustedY, obstacle.width, obstacle.height);
         }
-      } else {
-        collisionAlerted = false; // 重置提示标志
-        // 更新ref中的位置
-        positionRef.current = { x: newX, y: newY };
-        // 更新state（用于触发重绘）
-        setPosition({ x: newX, y: newY });
-      }
 
-      // 绘制障碍物（考虑背景偏移）
-      ctx.fillStyle = '#EF4444';
-      ctx.fillRect(
-        obstacle.x - backgroundOffsetRef.current.x,
-        obstacle.y - backgroundOffsetRef.current.y,
-        obstacle.width,
-        obstacle.height
-      );
+        const carScreenX = car.x;
+        const carScreenY = car.y;
 
-      // 绘制小车
+        if (checkRectCollision(
+          { x: carScreenX, y: carScreenY, width: car.width, height: car.height },
+          { x: adjustedX, y: adjustedY, width: obstacle.width, height: obstacle.height }
+        )) {
+          gameStateRef.current = 'gameover';
+          setGameState('gameover');
+        }
+      });
+
+      rewardsRef.current.forEach(reward => {
+        if (collectedRewardsRef.current.has(reward.id)) return;
+
+        const adjustedX = reward.x - backgroundOffsetRef.current.x;
+        const adjustedY = reward.y - backgroundOffsetRef.current.y;
+
+        if (adjustedX > -reward.size && adjustedX < canvas.width &&
+            adjustedY > -reward.size && adjustedY < canvas.height) {
+          ctx.fillStyle = REWARD_COLOR;
+          ctx.beginPath();
+          ctx.arc(adjustedX + reward.size / 2, adjustedY + reward.size / 2, reward.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = 'bold 16px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('+', adjustedX + reward.size / 2, adjustedY + reward.size / 2);
+        }
+
+        const carScreenX = car.x;
+        const carScreenY = car.y;
+
+        if (checkRectCollision(
+          { x: carScreenX, y: carScreenY, width: car.width, height: car.height },
+          { x: adjustedX, y: adjustedY, width: reward.size, height: reward.size }
+        )) {
+          collectedRewardsRef.current.add(reward.id);
+          scoreRef.current += 10;
+          setScore(scoreRef.current);
+        }
+      });
+
       if (carImage.complete && carImage.naturalWidth > 0) {
-        ctx.drawImage(carImage, positionRef.current.x, positionRef.current.y, width, height);
+        ctx.drawImage(carImage, car.x, car.y, car.width, car.height);
       } else {
-        // 备用方案：绘制简单的矩形小车
         ctx.fillStyle = '#3B82F6';
-        ctx.fillRect(positionRef.current.x, positionRef.current.y, width, height);
+        ctx.fillRect(car.x, car.y, car.width, car.height);
       }
 
       animationRef.current = requestAnimationFrame(animate);
     };
 
-    // 清理函数
+    carImage.onload = () => animate();
+    carImage.onerror = () => animate();
+
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      canvas.removeEventListener('touchstart', handleTouchStart);
+      canvas.removeEventListener('touchmove', handleTouchMove);
+      canvas.removeEventListener('touchend', handleTouchEnd);
     };
-  }, []); // 空依赖数组，只运行一次
+  }, [resetGame]);
 
   return (
     <>
       <section id='center'>
+        <div className="score-display">
+          <span>分数: {score}</span>
+          {gameState === 'gameover' && <span className="game-over">游戏结束</span>}
+        </div>
         <canvas
           ref={canvasRef}
           id="game"
-          width="400"
-          height="600"
-        ></canvas>
+          width={GAME_WIDTH}
+          height={GAME_HEIGHT}
+        />
+        {gameState === 'gameover' && (
+          <button className="restart-btn" onClick={resetGame}>
+            重新开始
+          </button>
+        )}
+        <div className="controls-hint">
+          方向键/WASD 移动 | 触摸滑动控制
+        </div>
       </section>
     </>
   );
