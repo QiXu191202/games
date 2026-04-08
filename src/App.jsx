@@ -5,109 +5,35 @@ import getRandomCar from '@/hooks/randomCar';
 const GAME_WIDTH = 400;
 const GAME_HEIGHT = 600;
 const CAR_SIZE = 40;
-const SPEED = 5;
+const CAR_SPEED = 4;
+const SCROLL_SPEED = 3;
 const OBSTACLE_COLOR = '#EF4444';
 const REWARD_COLOR = '#22C55E';
 
-function generateObstacles(count, centerX, centerY, excludeRadius = 100) {
-  const obstacles = [];
-  const padding = 20;
+function generateObstacle() {
   const minSize = 40;
   const maxSize = 60;
+  const width = minSize + Math.random() * (maxSize - minSize);
+  const height = minSize + Math.random() * (maxSize - minSize);
 
-  for (let i = 0; i < count; i++) {
-    let placed = false;
-    let attempts = 0;
-
-    while (!placed && attempts < 100) {
-      const width = minSize + Math.random() * (maxSize - minSize);
-      const height = minSize + Math.random() * (maxSize - minSize);
-      
-      let x, y;
-      const side = Math.floor(Math.random() * 4);
-      
-      switch (side) {
-        case 0:
-          x = padding + Math.random() * (GAME_WIDTH - width - padding * 2);
-          y = padding + Math.random() * 150;
-          break;
-        case 1:
-          x = padding + Math.random() * (GAME_WIDTH - width - padding * 2);
-          y = GAME_HEIGHT - padding - height - Math.random() * 150;
-          break;
-        case 2:
-          x = padding + Math.random() * 150;
-          y = padding + Math.random() * (GAME_HEIGHT - height - padding * 2);
-          break;
-        case 3:
-          x = GAME_WIDTH - padding - width - Math.random() * 150;
-          y = padding + Math.random() * (GAME_HEIGHT - height - padding * 2);
-          break;
-      }
-
-      const newObstacle = { x, y, width, height, id: `obstacle-${i}-${Date.now()}` };
-
-      const distToCenter = Math.sqrt(
-        Math.pow(x + width / 2 - centerX, 2) +
-        Math.pow(y + height / 2 - centerY, 2)
-      );
-
-      if (distToCenter > excludeRadius) {
-        const overlaps = obstacles.some(o => 
-          !(x + width < o.x || x > o.x + o.width || y + height < o.y || y > o.y + o.height)
-        );
-
-        if (!overlaps) {
-          obstacles.push(newObstacle);
-          placed = true;
-        }
-      }
-      attempts++;
-    }
-  }
-
-  return obstacles;
+  return {
+    x: 20 + Math.random() * (GAME_WIDTH - width - 40),
+    y: -height - 20,
+    width,
+    height,
+    id: `obstacle-${Date.now()}-${Math.random()}`
+  };
 }
 
-function generateRewards(count, obstacles, centerX, centerY) {
-  const rewards = [];
-  const rewardSize = 30;
-  const padding = 20;
+function generateReward() {
+  const size = 25;
 
-  for (let i = 0; i < count; i++) {
-    let placed = false;
-    let attempts = 0;
-
-    while (!placed && attempts < 100) {
-      const x = padding + Math.random() * (GAME_WIDTH - rewardSize - padding * 2);
-      const y = padding + Math.random() * (GAME_HEIGHT - rewardSize - padding * 2);
-
-      const newReward = { x, y, size: rewardSize, id: `reward-${i}-${Date.now()}` };
-
-      const distToCenter = Math.sqrt(
-        Math.pow(x + rewardSize / 2 - centerX, 2) +
-        Math.pow(y + rewardSize / 2 - centerY, 2)
-      );
-
-      if (distToCenter > 80 && distToCenter < 250) {
-        const overlapsObstacle = obstacles.some(o =>
-          !(x + rewardSize < o.x || x > o.x + o.width || y + rewardSize < o.y || y > o.y + o.height)
-        );
-
-        const overlapsReward = rewards.some(r =>
-          !(x + rewardSize < r.x || x > r.x + r.size || y + rewardSize < r.y || y > r.y + r.size)
-        );
-
-        if (!overlapsObstacle && !overlapsReward) {
-          rewards.push(newReward);
-          placed = true;
-        }
-      }
-      attempts++;
-    }
-  }
-
-  return rewards;
+  return {
+    x: 30 + Math.random() * (GAME_WIDTH - size - 60),
+    y: -size - 20,
+    size,
+    id: `reward-${Date.now()}-${Math.random()}`
+  };
 }
 
 function checkRectCollision(rect1, rect2) {
@@ -127,8 +53,8 @@ function App() {
   const [gameState, setGameState] = useState('playing');
 
   const carRef = useRef({
-    x: 180,
-    y: 500,
+    x: (GAME_WIDTH - CAR_SIZE) / 2,
+    y: GAME_HEIGHT - CAR_SIZE - 80,
     width: CAR_SIZE,
     height: CAR_SIZE
   });
@@ -146,11 +72,11 @@ function App() {
 
   const obstaclesRef = useRef([]);
   const rewardsRef = useRef([]);
-  const backgroundOffsetRef = useRef({ x: 0, y: 0 });
   const collectedRewardsRef = useRef(new Set());
   const gameStateRef = useRef('playing');
   const scoreRef = useRef(0);
-  const initializedRef = useRef(false);
+  const spawnTimerRef = useRef(0);
+  const rewardSpawnTimerRef = useRef(0);
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -161,31 +87,21 @@ function App() {
   }, [score]);
 
   const resetGame = useCallback(() => {
-    const car = { x: 180, y: 500, width: CAR_SIZE, height: CAR_SIZE };
-    carRef.current = car;
-    backgroundOffsetRef.current = { x: 0, y: 0 };
+    carRef.current = {
+      x: (GAME_WIDTH - CAR_SIZE) / 2,
+      y: GAME_HEIGHT - CAR_SIZE - 80,
+      width: CAR_SIZE,
+      height: CAR_SIZE
+    };
+    obstaclesRef.current = [];
+    rewardsRef.current = [];
     collectedRewardsRef.current = new Set();
     scoreRef.current = 0;
+    spawnTimerRef.current = 0;
+    rewardSpawnTimerRef.current = 0;
     setScore(0);
-
-    const obstacles = generateObstacles(8, car.x, car.y);
-    const rewards = generateRewards(5, obstacles, car.x, car.y);
-    obstaclesRef.current = obstacles;
-    rewardsRef.current = rewards;
     gameStateRef.current = 'playing';
     setGameState('playing');
-    initializedRef.current = true;
-  }, []);
-
-  useEffect(() => {
-    if (!initializedRef.current) {
-      const car = carRef.current;
-      const obstacles = generateObstacles(8, car.x, car.y);
-      const rewards = generateRewards(5, obstacles, car.x, car.y);
-      obstaclesRef.current = obstacles;
-      rewardsRef.current = rewards;
-      initializedRef.current = true;
-    }
   }, []);
 
   useEffect(() => {
@@ -230,11 +146,11 @@ function App() {
       const deltaX = touch.clientX - touchStartRef.current.x;
       const deltaY = touch.clientY - touchStartRef.current.y;
 
-      const threshold = 10;
-      keysRef.current.ArrowRight = deltaX > threshold;
+      const threshold = 5;
       keysRef.current.ArrowLeft = deltaX < -threshold;
-      keysRef.current.ArrowDown = deltaY > threshold;
+      keysRef.current.ArrowRight = deltaX > threshold;
       keysRef.current.ArrowUp = deltaY < -threshold;
+      keysRef.current.ArrowDown = deltaY > threshold;
 
       touchStartRef.current = { x: touch.clientX, y: touch.clientY };
     };
@@ -273,76 +189,78 @@ function App() {
       ctx.stroke();
       ctx.setLineDash([]);
 
-      const oldOffset = { ...backgroundOffsetRef.current };
+      const car = carRef.current;
 
       const upPressed = keysRef.current.ArrowUp || keysRef.current.KeyW;
       const downPressed = keysRef.current.ArrowDown || keysRef.current.KeyS;
       const leftPressed = keysRef.current.ArrowLeft || keysRef.current.KeyA;
       const rightPressed = keysRef.current.ArrowRight || keysRef.current.KeyD;
 
-      if (upPressed) backgroundOffsetRef.current.y -= SPEED;
-      if (downPressed) backgroundOffsetRef.current.y += SPEED;
-      if (leftPressed) backgroundOffsetRef.current.x -= SPEED;
-      if (rightPressed) backgroundOffsetRef.current.x += SPEED;
+      if (upPressed) car.y = Math.max(0, car.y - CAR_SPEED);
+      if (downPressed) car.y = Math.min(canvas.height - car.height, car.y + CAR_SPEED);
+      if (leftPressed) car.x = Math.max(0, car.x - CAR_SPEED);
+      if (rightPressed) car.x = Math.min(canvas.width - car.width, car.x + CAR_SPEED);
 
-      const car = carRef.current;
-      let collision = false;
+      spawnTimerRef.current++;
+      if (spawnTimerRef.current >= 60) {
+        obstaclesRef.current.push(generateObstacle());
+        spawnTimerRef.current = 0;
+      }
 
-      obstaclesRef.current.forEach(obstacle => {
-        const adjustedX = obstacle.x - backgroundOffsetRef.current.x;
-        const adjustedY = obstacle.y - backgroundOffsetRef.current.y;
+      rewardSpawnTimerRef.current++;
+      if (rewardSpawnTimerRef.current >= 90) {
+        rewardsRef.current.push(generateReward());
+        rewardSpawnTimerRef.current = 0;
+      }
 
-        if (adjustedX > -obstacle.width && adjustedX < canvas.width &&
-            adjustedY > -obstacle.height && adjustedY < canvas.height) {
-          ctx.fillStyle = OBSTACLE_COLOR;
-          ctx.fillRect(adjustedX, adjustedY, obstacle.width, obstacle.height);
-        }
+      obstaclesRef.current = obstaclesRef.current.filter(obstacle => {
+        obstacle.y += SCROLL_SPEED;
+
+        if (obstacle.y > canvas.height) return false;
+
+        ctx.fillStyle = OBSTACLE_COLOR;
+        ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
 
         if (checkRectCollision(
           { x: car.x, y: car.y, width: car.width, height: car.height },
-          { x: adjustedX, y: adjustedY, width: obstacle.width, height: obstacle.height }
+          { x: obstacle.x, y: obstacle.y, width: obstacle.width, height: obstacle.height }
         )) {
-          collision = true;
+          gameStateRef.current = 'gameover';
+          setGameState('gameover');
         }
+
+        return true;
       });
 
-      if (collision) {
-        backgroundOffsetRef.current = oldOffset;
-        gameStateRef.current = 'gameover';
-        setGameState('gameover');
-      }
+      rewardsRef.current = rewardsRef.current.filter(reward => {
+        reward.y += SCROLL_SPEED;
 
-      if (!collision) {
-        rewardsRef.current.forEach(reward => {
-          if (collectedRewardsRef.current.has(reward.id)) return;
+        if (reward.y > canvas.height) return false;
+        if (collectedRewardsRef.current.has(reward.id)) return true;
 
-          const adjustedX = reward.x - backgroundOffsetRef.current.x;
-          const adjustedY = reward.y - backgroundOffsetRef.current.y;
+        ctx.fillStyle = REWARD_COLOR;
+        ctx.beginPath();
+        ctx.arc(reward.x + reward.size / 2, reward.y + reward.size / 2, reward.size / 2, 0, Math.PI * 2);
+        ctx.fill();
 
-          if (adjustedX > -reward.size && adjustedX < canvas.width &&
-              adjustedY > -reward.size && adjustedY < canvas.height) {
-            ctx.fillStyle = REWARD_COLOR;
-            ctx.beginPath();
-            ctx.arc(adjustedX + reward.size / 2, adjustedY + reward.size / 2, reward.size / 2, 0, Math.PI * 2);
-            ctx.fill();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('+', reward.x + reward.size / 2, reward.y + reward.size / 2);
 
-            ctx.fillStyle = '#FFFFFF';
-            ctx.font = 'bold 16px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('+', adjustedX + reward.size / 2, adjustedY + reward.size / 2);
-          }
+        if (checkRectCollision(
+          { x: car.x, y: car.y, width: car.width, height: car.height },
+          { x: reward.x, y: reward.y, width: reward.size, height: reward.size }
+        )) {
+          collectedRewardsRef.current.add(reward.id);
+          scoreRef.current += 10;
+          setScore(scoreRef.current);
+          return false;
+        }
 
-          if (checkRectCollision(
-            { x: car.x, y: car.y, width: car.width, height: car.height },
-            { x: adjustedX, y: adjustedY, width: reward.size, height: reward.size }
-          )) {
-            collectedRewardsRef.current.add(reward.id);
-            scoreRef.current += 10;
-            setScore(scoreRef.current);
-          }
-        });
-      }
+        return true;
+      });
 
       if (carImage.complete && carImage.naturalWidth > 0) {
         ctx.drawImage(carImage, car.x, car.y, car.width, car.height);
@@ -354,12 +272,8 @@ function App() {
       animationRef.current = requestAnimationFrame(animate);
     };
 
-    carImage.onload = () => {
-      if (initializedRef.current) animate();
-    };
-    carImage.onerror = () => {
-      if (initializedRef.current) animate();
-    };
+    carImage.onload = () => animate();
+    carImage.onerror = () => animate();
 
     return () => {
       if (animationRef.current) {
