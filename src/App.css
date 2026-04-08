@@ -33,24 +33,59 @@
   color: #EF4444;
 }
 
+.score-display .time-display {
+  color: #6B7280;
+}
+
+.button-row {
+  display: flex;
+  gap: 12px;
+}
+
+.start-btn,
+.pause-btn,
+.resume-btn,
 .restart-btn {
   padding: 12px 32px;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: bold;
   color: white;
-  background: #3B82F6;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.2s;
 }
 
-.restart-btn:hover {
+.start-btn {
+  background: #22C55E;
+}
+
+.start-btn:hover {
+  background: #16A34A;
+}
+
+.pause-btn {
+  background: #F59E0B;
+}
+
+.pause-btn:hover {
+  background: #D97706;
+}
+
+.resume-btn {
+  background: #3B82F6;
+}
+
+.resume-btn:hover {
   background: #2563EB;
 }
 
-.restart-btn:active {
-  background: #1D4ED8;
+.restart-btn {
+  background: #6B7280;
+}
+
+.restart-btn:hover {
+  background: #4B5563;
 }
 
 .controls-hint {
@@ -69,9 +104,23 @@
   .score-display {
     font-size: 16px;
     padding: 8px 16px;
+    gap: 12px;
   }
 
   .controls-hint {
     font-size: 12px;
+  }
+
+  .button-row {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .start-btn,
+  .pause-btn,
+  .resume-btn,
+  .restart-btn {
+    padding: 10px 24px;
+    font-size: 14px;
   }
 }

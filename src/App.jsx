@@ -45,12 +45,19 @@ function checkRectCollision(rect1, rect2) {
   );
 }
 
+function formatTime(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
 function App() {
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
   const touchStartRef = useRef(null);
   const [score, setScore] = useState(0);
-  const [gameState, setGameState] = useState('playing');
+  const [gameState, setGameState] = useState('idle');
+  const [elapsedTime, setElapsedTime] = useState(0);
 
   const carRef = useRef({
     x: (GAME_WIDTH - CAR_SIZE) / 2,
@@ -73,10 +80,12 @@ function App() {
   const obstaclesRef = useRef([]);
   const rewardsRef = useRef([]);
   const collectedRewardsRef = useRef(new Set());
-  const gameStateRef = useRef('playing');
+  const gameStateRef = useRef('idle');
   const scoreRef = useRef(0);
   const spawnTimerRef = useRef(0);
   const rewardSpawnTimerRef = useRef(0);
+  const timeRef = useRef(0);
+  const timerIntervalRef = useRef(null);
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -86,7 +95,43 @@ function App() {
     scoreRef.current = score;
   }, [score]);
 
+  const startGame = useCallback(() => {
+    gameStateRef.current = 'playing';
+    setGameState('playing');
+    timeRef.current = 0;
+    setElapsedTime(0);
+
+    timerIntervalRef.current = setInterval(() => {
+      timeRef.current++;
+      setElapsedTime(timeRef.current);
+    }, 1000);
+  }, []);
+
+  const pauseGame = useCallback(() => {
+    gameStateRef.current = 'paused';
+    setGameState('paused');
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+  }, []);
+
+  const resumeGame = useCallback(() => {
+    gameStateRef.current = 'playing';
+    setGameState('playing');
+
+    timerIntervalRef.current = setInterval(() => {
+      timeRef.current++;
+      setElapsedTime(timeRef.current);
+    }, 1000);
+  }, []);
+
   const resetGame = useCallback(() => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+
     carRef.current = {
       x: (GAME_WIDTH - CAR_SIZE) / 2,
       y: GAME_HEIGHT - CAR_SIZE - 80,
@@ -99,9 +144,19 @@ function App() {
     scoreRef.current = 0;
     spawnTimerRef.current = 0;
     rewardSpawnTimerRef.current = 0;
+    timeRef.current = 0;
     setScore(0);
-    gameStateRef.current = 'playing';
-    setGameState('playing');
+    setElapsedTime(0);
+    gameStateRef.current = 'idle';
+    setGameState('idle');
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -130,7 +185,11 @@ function App() {
     };
 
     const handleTouchStart = (e) => {
-      if (gameStateRef.current !== 'playing') {
+      if (gameStateRef.current === 'idle') {
+        startGame();
+        return;
+      }
+      if (gameStateRef.current === 'gameover') {
         resetGame();
         return;
       }
@@ -170,11 +229,6 @@ function App() {
     canvas.addEventListener('touchend', handleTouchEnd);
 
     const animate = () => {
-      if (gameStateRef.current === 'gameover') {
-        animationRef.current = requestAnimationFrame(animate);
-        return;
-      }
-
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       ctx.fillStyle = '#6B7280';
@@ -191,76 +245,82 @@ function App() {
 
       const car = carRef.current;
 
-      const upPressed = keysRef.current.ArrowUp || keysRef.current.KeyW;
-      const downPressed = keysRef.current.ArrowDown || keysRef.current.KeyS;
-      const leftPressed = keysRef.current.ArrowLeft || keysRef.current.KeyA;
-      const rightPressed = keysRef.current.ArrowRight || keysRef.current.KeyD;
+      if (gameStateRef.current === 'playing') {
+        const upPressed = keysRef.current.ArrowUp || keysRef.current.KeyW;
+        const downPressed = keysRef.current.ArrowDown || keysRef.current.KeyS;
+        const leftPressed = keysRef.current.ArrowLeft || keysRef.current.KeyA;
+        const rightPressed = keysRef.current.ArrowRight || keysRef.current.KeyD;
 
-      if (upPressed) car.y = Math.max(0, car.y - CAR_SPEED);
-      if (downPressed) car.y = Math.min(canvas.height - car.height, car.y + CAR_SPEED);
-      if (leftPressed) car.x = Math.max(0, car.x - CAR_SPEED);
-      if (rightPressed) car.x = Math.min(canvas.width - car.width, car.x + CAR_SPEED);
+        if (upPressed) car.y = Math.max(0, car.y - CAR_SPEED);
+        if (downPressed) car.y = Math.min(canvas.height - car.height, car.y + CAR_SPEED);
+        if (leftPressed) car.x = Math.max(0, car.x - CAR_SPEED);
+        if (rightPressed) car.x = Math.min(canvas.width - car.width, car.x + CAR_SPEED);
 
-      spawnTimerRef.current++;
-      if (spawnTimerRef.current >= 60) {
-        obstaclesRef.current.push(generateObstacle());
-        spawnTimerRef.current = 0;
-      }
-
-      rewardSpawnTimerRef.current++;
-      if (rewardSpawnTimerRef.current >= 90) {
-        rewardsRef.current.push(generateReward());
-        rewardSpawnTimerRef.current = 0;
-      }
-
-      obstaclesRef.current = obstaclesRef.current.filter(obstacle => {
-        obstacle.y += SCROLL_SPEED;
-
-        if (obstacle.y > canvas.height) return false;
-
-        ctx.fillStyle = OBSTACLE_COLOR;
-        ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
-
-        if (checkRectCollision(
-          { x: car.x, y: car.y, width: car.width, height: car.height },
-          { x: obstacle.x, y: obstacle.y, width: obstacle.width, height: obstacle.height }
-        )) {
-          gameStateRef.current = 'gameover';
-          setGameState('gameover');
+        spawnTimerRef.current++;
+        if (spawnTimerRef.current >= 60) {
+          obstaclesRef.current.push(generateObstacle());
+          spawnTimerRef.current = 0;
         }
 
-        return true;
-      });
-
-      rewardsRef.current = rewardsRef.current.filter(reward => {
-        reward.y += SCROLL_SPEED;
-
-        if (reward.y > canvas.height) return false;
-        if (collectedRewardsRef.current.has(reward.id)) return true;
-
-        ctx.fillStyle = REWARD_COLOR;
-        ctx.beginPath();
-        ctx.arc(reward.x + reward.size / 2, reward.y + reward.size / 2, reward.size / 2, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 14px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('+', reward.x + reward.size / 2, reward.y + reward.size / 2);
-
-        if (checkRectCollision(
-          { x: car.x, y: car.y, width: car.width, height: car.height },
-          { x: reward.x, y: reward.y, width: reward.size, height: reward.size }
-        )) {
-          collectedRewardsRef.current.add(reward.id);
-          scoreRef.current += 10;
-          setScore(scoreRef.current);
-          return false;
+        rewardSpawnTimerRef.current++;
+        if (rewardSpawnTimerRef.current >= 90) {
+          rewardsRef.current.push(generateReward());
+          rewardSpawnTimerRef.current = 0;
         }
 
-        return true;
-      });
+        obstaclesRef.current = obstaclesRef.current.filter(obstacle => {
+          obstacle.y += SCROLL_SPEED;
+
+          if (obstacle.y > canvas.height) return false;
+
+          ctx.fillStyle = OBSTACLE_COLOR;
+          ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+
+          if (checkRectCollision(
+            { x: car.x, y: car.y, width: car.width, height: car.height },
+            { x: obstacle.x, y: obstacle.y, width: obstacle.width, height: obstacle.height }
+          )) {
+            gameStateRef.current = 'gameover';
+            setGameState('gameover');
+            if (timerIntervalRef.current) {
+              clearInterval(timerIntervalRef.current);
+              timerIntervalRef.current = null;
+            }
+          }
+
+          return true;
+        });
+
+        rewardsRef.current = rewardsRef.current.filter(reward => {
+          reward.y += SCROLL_SPEED;
+
+          if (reward.y > canvas.height) return false;
+          if (collectedRewardsRef.current.has(reward.id)) return true;
+
+          ctx.fillStyle = REWARD_COLOR;
+          ctx.beginPath();
+          ctx.arc(reward.x + reward.size / 2, reward.y + reward.size / 2, reward.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = 'bold 14px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('+', reward.x + reward.size / 2, reward.y + reward.size / 2);
+
+          if (checkRectCollision(
+            { x: car.x, y: car.y, width: car.width, height: car.height },
+            { x: reward.x, y: reward.y, width: reward.size, height: reward.size }
+          )) {
+            collectedRewardsRef.current.add(reward.id);
+            scoreRef.current += 10;
+            setScore(scoreRef.current);
+            return false;
+          }
+
+          return true;
+        });
+      }
 
       if (carImage.complete && carImage.naturalWidth > 0) {
         ctx.drawImage(carImage, car.x, car.y, car.width, car.height);
@@ -285,13 +345,14 @@ function App() {
       canvas.removeEventListener('touchmove', handleTouchMove);
       canvas.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [resetGame]);
+  }, [startGame, pauseGame, resumeGame, resetGame]);
 
   return (
     <>
       <section id='center'>
         <div className="score-display">
           <span>分数: {score}</span>
+          <span className="time-display">{formatTime(elapsedTime)}</span>
           {gameState === 'gameover' && <span className="game-over">游戏结束</span>}
         </div>
         <canvas
@@ -300,11 +361,28 @@ function App() {
           width={GAME_WIDTH}
           height={GAME_HEIGHT}
         />
-        {gameState === 'gameover' && (
-          <button className="restart-btn" onClick={resetGame}>
-            重新开始
-          </button>
-        )}
+        <div className="button-row">
+          {gameState === 'idle' && (
+            <button className="start-btn" onClick={startGame}>
+              开始
+            </button>
+          )}
+          {gameState === 'playing' && (
+            <button className="pause-btn" onClick={pauseGame}>
+              暂停
+            </button>
+          )}
+          {gameState === 'paused' && (
+            <button className="resume-btn" onClick={resumeGame}>
+              继续
+            </button>
+          )}
+          {gameState !== 'idle' && (
+            <button className="restart-btn" onClick={resetGame}>
+              重新开始
+            </button>
+          )}
+        </div>
         <div className="controls-hint">
           方向键/WASD 移动 | 触摸滑动控制
         </div>
