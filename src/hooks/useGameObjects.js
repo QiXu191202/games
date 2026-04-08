@@ -4,13 +4,13 @@ const GAME_WIDTH = 400;
 const GAME_HEIGHT = 600;
 
 export function generateObstacle() {
-  const minSize = 40;
-  const maxSize = 60;
-  const width = minSize + Math.random() * (maxSize - minSize);
-  const height = minSize + Math.random() * (maxSize - minSize);
+  const minWidth = 60;
+  const maxWidth = 120;
+  const height = 25;
+  const width = minWidth + Math.random() * (maxWidth - minWidth);
 
   return {
-    x: 20 + Math.random() * (GAME_WIDTH - width - 40),
+    x: 15 + Math.random() * (GAME_WIDTH - width - 30),
     y: -height - 20,
     width,
     height,
@@ -46,13 +46,13 @@ export function useGameObjects() {
 
   const update = useCallback((scrollSpeed, onCollectReward) => {
     spawnTimerRef.current++;
-    if (spawnTimerRef.current >= 60) {
+    if (spawnTimerRef.current >= 50) {
       obstaclesRef.current.push(generateObstacle());
       spawnTimerRef.current = 0;
     }
 
     rewardSpawnTimerRef.current++;
-    if (rewardSpawnTimerRef.current >= 90) {
+    if (rewardSpawnTimerRef.current >= 70) {
       rewardsRef.current.push(generateReward());
       rewardSpawnTimerRef.current = 0;
     }

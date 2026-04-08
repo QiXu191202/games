@@ -4,14 +4,17 @@ import getRandomCar from '@/hooks/randomCar';
 import { useKeyboardControls, useTouchControls } from '@/hooks/useKeyboardControls';
 import { useGameObjects } from '@/hooks/useGameObjects';
 import { useGameTimer } from '@/hooks/useGameTimer';
+import wallImage from '@/assets/wall-item.png';
 
 const GAME_WIDTH = 400;
 const GAME_HEIGHT = 600;
 const CAR_SIZE = 40;
 const CAR_SPEED = 4;
 const SCROLL_SPEED = 3;
-const OBSTACLE_COLOR = '#EF4444';
 const REWARD_COLOR = '#22C55E';
+const ROAD_COLOR = '#3D3D3D';
+const LANE_LINE_COLOR = '#F5F5DC';
+const SHOULDER_COLOR = '#4A4A4A';
 
 function checkRectCollision(rect1, rect2) {
   return (
@@ -20,6 +23,71 @@ function checkRectCollision(rect1, rect2) {
     rect1.y < rect2.y + rect2.height &&
     rect1.y + rect1.height > rect2.y
   );
+}
+
+function drawRoad(ctx, width, height, offset) {
+  ctx.fillStyle = SHOULDER_COLOR;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.fillStyle = ROAD_COLOR;
+  ctx.fillRect(10, 0, width - 20, height);
+
+  ctx.fillStyle = '#2A2A2A';
+  ctx.fillRect(12, 0, 4, height);
+  ctx.fillRect(width - 16, 0, 4, height);
+
+  const dashLength = 30;
+  const gapLength = 20;
+  const totalLength = dashLength + gapLength;
+  const startY = (offset % totalLength + totalLength) % totalLength - dashLength;
+
+  ctx.strokeStyle = LANE_LINE_COLOR;
+  ctx.lineWidth = 3;
+  ctx.setLineDash([dashLength, gapLength]);
+  ctx.beginPath();
+  ctx.moveTo(width / 2, startY);
+  for (let y = startY; y < height; y += totalLength) {
+    ctx.moveTo(width / 2, y);
+    ctx.lineTo(width / 2, Math.min(y + dashLength, height));
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = '#4A4A4A';
+  for (let i = 0; i < 20; i++) {
+    const x = (i * 67 + offset * 0.5) % width;
+    const y = (i * 89 + offset * 0.3) % height;
+    ctx.beginPath();
+    ctx.arc(x, y, 1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawBrickWall(ctx, obstacle) {
+  const pattern = ctx.createPattern(wallImage, 'repeat');
+  if (pattern) {
+    ctx.save();
+    ctx.translate(obstacle.x, obstacle.y);
+    ctx.fillStyle = pattern;
+    ctx.fillRect(0, 0, obstacle.width, obstacle.height);
+
+    ctx.strokeStyle = '#8B7355';
+    ctx.lineWidth = 1;
+
+    const brickWidth = 24;
+    const brickHeight = obstacle.height;
+    for (let x = 0; x <= obstacle.width; x += brickWidth) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, brickHeight);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  } else {
+    ctx.fillStyle = '#8B4513';
+    ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+  }
 }
 
 function App() {
@@ -33,6 +101,9 @@ function App() {
   });
   const moveStateRef = useRef({ up: false, down: false, left: false, right: false });
   const gameActiveRef = useRef(false);
+  const roadOffsetRef = useRef(0);
+
+  const wallImageRef = useRef(null);
 
   const { reset: resetObjects, update: updateObjects } = useGameObjects();
   const { score, start, pause, resume, reset: resetTimer, addScore, triggerGameOver, formattedTime } = useGameTimer();
@@ -77,6 +148,7 @@ function App() {
       width: CAR_SIZE,
       height: CAR_SIZE
     };
+    roadOffsetRef.current = 0;
     setGameState('idle');
     gameActiveRef.current = false;
   }, [resetTimer, resetObjects]);
@@ -94,6 +166,14 @@ function App() {
   }, [addScore]);
 
   useEffect(() => {
+    const wallImg = new Image();
+    wallImg.src = wallImage;
+    wallImg.onload = () => {
+      wallImageRef.current = wallImg;
+    };
+  }, []);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -107,36 +187,28 @@ function App() {
     const animate = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      ctx.fillStyle = '#6B7280';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      ctx.strokeStyle = '#FFFFFF';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([10, 10]);
-      ctx.beginPath();
-      ctx.moveTo(canvas.width / 2, 0);
-      ctx.lineTo(canvas.width / 2, canvas.height);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      if (gameActiveRef.current) {
+        roadOffsetRef.current += SCROLL_SPEED;
+      }
+      drawRoad(ctx, canvas.width, canvas.height, roadOffsetRef.current);
 
       const car = carRef.current;
       const move = moveStateRef.current;
 
       if (gameActiveRef.current) {
-        if (move.up) car.y = Math.max(0, car.y - CAR_SPEED);
-        if (move.down) car.y = Math.min(canvas.height - car.height, car.y + CAR_SPEED);
-        if (move.left) car.x = Math.max(0, car.x - CAR_SPEED);
-        if (move.right) car.x = Math.min(canvas.width - car.width, car.x + CAR_SPEED);
+        if (move.up) car.y = Math.max(10, car.y - CAR_SPEED);
+        if (move.down) car.y = Math.min(canvas.height - car.height - 10, car.y + CAR_SPEED);
+        if (move.left) car.x = Math.max(15, car.x - CAR_SPEED);
+        if (move.right) car.x = Math.min(canvas.width - car.width - 15, car.x + CAR_SPEED);
 
         const { obstacles, rewards } = updateObjects(SCROLL_SPEED, handleCollectReward);
 
         for (const obstacle of obstacles) {
-          ctx.fillStyle = OBSTACLE_COLOR;
-          ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+          drawBrickWall(ctx, obstacle);
 
           if (checkRectCollision(
             { x: car.x, y: car.y, width: car.width, height: car.height },
-            { x: obstacle.x, y: obstacle.y, width: obstacle.width, height: obstacle.height }
+            { x: obstacle.x + 2, y: obstacle.y + 2, width: obstacle.width - 4, height: obstacle.height - 4 }
           )) {
             gameActiveRef.current = false;
             setGameState('gameover');
