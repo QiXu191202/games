@@ -1,30 +1,26 @@
 import { useRef, useCallback } from 'react';
-
-const GAME_WIDTH = 400;
-const GAME_HEIGHT = 600;
+import { GAME_CONFIG, OBSTACLE_CONFIG, REWARD_CONFIG } from '@/constants/gameConfig';
 
 export function generateObstacle() {
-  const minWidth = 60;
-  const maxWidth = 120;
-  const height = 25;
-  const width = minWidth + Math.random() * (maxWidth - minWidth);
+  const width = OBSTACLE_CONFIG.MIN_WIDTH +
+    Math.random() * (OBSTACLE_CONFIG.MAX_WIDTH - OBSTACLE_CONFIG.MIN_WIDTH);
 
   return {
-    x: 15 + Math.random() * (GAME_WIDTH - width - 30),
-    y: -height - 20,
+    x: 15 + Math.random() * (GAME_CONFIG.WIDTH - width - 30),
+    y: -OBSTACLE_CONFIG.HEIGHT - 20,
     width,
-    height,
+    height: OBSTACLE_CONFIG.HEIGHT,
     id: `obstacle-${Date.now()}-${Math.random()}`
   };
 }
 
 export function generateReward() {
-  const size = 25;
+  const { SIZE } = REWARD_CONFIG;
 
   return {
-    x: 30 + Math.random() * (GAME_WIDTH - size - 60),
-    y: -size - 20,
-    size,
+    x: 30 + Math.random() * (GAME_CONFIG.WIDTH - SIZE - 60),
+    y: -SIZE - 20,
+    size: SIZE,
     id: `reward-${Date.now()}-${Math.random()}`
   };
 }
@@ -46,26 +42,26 @@ export function useGameObjects() {
 
   const update = useCallback((scrollSpeed, onCollectReward) => {
     spawnTimerRef.current++;
-    if (spawnTimerRef.current >= 50) {
+    if (spawnTimerRef.current >= OBSTACLE_CONFIG.SPAWN_INTERVAL) {
       obstaclesRef.current.push(generateObstacle());
       spawnTimerRef.current = 0;
     }
 
     rewardSpawnTimerRef.current++;
-    if (rewardSpawnTimerRef.current >= 70) {
+    if (rewardSpawnTimerRef.current >= REWARD_CONFIG.SPAWN_INTERVAL) {
       rewardsRef.current.push(generateReward());
       rewardSpawnTimerRef.current = 0;
     }
 
     obstaclesRef.current = obstaclesRef.current.filter(obstacle => {
       obstacle.y += scrollSpeed;
-      return obstacle.y <= GAME_HEIGHT;
+      return obstacle.y <= GAME_CONFIG.HEIGHT;
     });
 
     let collectedId = null;
     rewardsRef.current = rewardsRef.current.filter(reward => {
       reward.y += scrollSpeed;
-      if (reward.y > GAME_HEIGHT) return false;
+      if (reward.y > GAME_CONFIG.HEIGHT) return false;
       if (collectedRewardsRef.current.has(reward.id)) return true;
 
       if (onCollectReward) {
