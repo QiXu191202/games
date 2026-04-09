@@ -6,6 +6,7 @@ import { drawRoad } from '@/utils/drawRoad';
 import { createBrickWallDrawer } from '@/utils/drawBrickWall';
 import { drawCar } from '@/utils/drawCar';
 import { drawRewards } from '@/utils/drawRewards';
+import { CollisionEffect, ScorePopup } from '@/utils/collisionEffects';
 import { checkRectCollision } from '@/hooks/useCollisionDetection';
 import { GAME_CONFIG, CAR_BOUNDARY, OBSTACLE_CONFIG, REWARD_CONFIG } from '@/constants/gameConfig';
 import getRandomCar from '@/hooks/randomCar';
@@ -25,6 +26,7 @@ export function useGameController(onGameOver) {
   const roadOffsetRef = useRef(0);
   const wallImageRef = useRef(null);
   const carImageRef = useRef(null);
+  const effectsRef = useRef([]);
 
   const { reset: resetObjects, update: updateObjects } = useGameObjects();
   const { start, pause, resume, reset: resetTimer, addScore, triggerGameOver, score, formattedTime } = useGameTimer(onGameOver);
@@ -68,6 +70,7 @@ export function useGameController(onGameOver) {
     };
     roadOffsetRef.current = 0;
     gameActiveRef.current = false;
+    effectsRef.current = [];
   }, [resetTimer, resetObjects]);
 
   const handleCollectReward = useCallback((reward) => {
@@ -77,6 +80,17 @@ export function useGameController(onGameOver) {
       { x: reward.x, y: reward.y, width: reward.size, height: reward.size }
     )) {
       addScore(REWARD_CONFIG.SCORE_VALUE);
+      effectsRef.current.push(
+        new CollisionEffect(
+          reward.x + reward.size / 2,
+          reward.y + reward.size / 2
+        ),
+        new ScorePopup(
+          reward.x + reward.size / 2,
+          reward.y,
+          REWARD_CONFIG.SCORE_VALUE
+        )
+      );
       return true;
     }
     return false;
@@ -146,6 +160,14 @@ export function useGameController(onGameOver) {
       }
 
       drawCar(ctx, car, carImage);
+
+      for (let i = effectsRef.current.length - 1; i >= 0; i--) {
+        if (!effectsRef.current[i].update()) {
+          effectsRef.current.splice(i, 1);
+        } else {
+          effectsRef.current[i].draw(ctx);
+        }
+      }
 
       animationRef.current = requestAnimationFrame(animate);
     };
