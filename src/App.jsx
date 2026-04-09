@@ -64,10 +64,12 @@ function drawRoad(ctx, width, height, offset) {
 }
 
 function drawBrickWallFallback(ctx, obstacle) {
-  ctx.fillStyle = '#8B4513';
+  ctx.fillStyle = '#B8560D';
   ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
-  ctx.strokeStyle = '#6B3510';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = '#FF6B35';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(obstacle.x + 1.5, obstacle.y + 1.5, obstacle.width - 3, obstacle.height - 3);
+  ctx.fillStyle = '#D4651A';
   const brickWidth = 24;
   const brickHeight = obstacle.height;
   for (let x = 0; x <= obstacle.width; x += brickWidth) {
@@ -76,6 +78,8 @@ function drawBrickWallFallback(ctx, obstacle) {
     ctx.lineTo(x, obstacle.y + brickHeight);
     ctx.stroke();
   }
+  ctx.fillStyle = 'rgba(255, 107, 53, 0.15)';
+  ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
 }
 
 function App() {
@@ -106,16 +110,11 @@ function App() {
         ctx.translate(obstacle.x, obstacle.y);
         ctx.fillStyle = pattern;
         ctx.fillRect(0, 0, obstacle.width, obstacle.height);
-        ctx.strokeStyle = '#8B7355';
-        ctx.lineWidth = 1;
-        const brickWidth = 24;
-        const brickHeight = obstacle.height;
-        for (let x = 0; x <= obstacle.width; x += brickWidth) {
-          ctx.beginPath();
-          ctx.moveTo(x, 0);
-          ctx.lineTo(x, brickHeight);
-          ctx.stroke();
-        }
+        ctx.strokeStyle = '#FF6B35';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(0, 0, obstacle.width, obstacle.height);
+        ctx.fillStyle = 'rgba(255, 107, 53, 0.3)';
+        ctx.fillRect(0, 0, obstacle.width, obstacle.height);
         ctx.restore();
         return;
       }
