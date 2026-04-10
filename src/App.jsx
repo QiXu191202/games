@@ -17,7 +17,9 @@ function App() {
     handleStart,
     handlePause,
     handleResume,
-    handleReset
+    handleReset,
+    handleMobileLeft,
+    handleMobileRight
   } = useGameController(handleGameOver);
 
   const onStart = useCallback(() => {
@@ -50,6 +52,8 @@ function App() {
         onPause={onPause}
         onResume={onResume}
         onReset={onReset}
+        onLeftBtn={handleMobileLeft}
+        onRightBtn={handleMobileRight}
       />
       <GameCanvas canvasRef={canvasRef} />
     </section>

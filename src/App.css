@@ -94,6 +94,32 @@
   text-align: center;
 }
 
+.mobile-controls {
+  display: none;
+  gap: 80px;
+  margin-top: 8px;
+}
+
+.mobile-btn {
+  width: 64px;
+  height: 64px;
+  font-size: 28px;
+  color: white;
+  background: #374151;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.1s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-btn:active {
+  background: #1F2937;
+  transform: scale(0.95);
+}
+
 @media (max-width: 480px) {
   #game {
     width: 100%;
@@ -122,5 +148,9 @@
   .restart-btn {
     padding: 10px 24px;
     font-size: 14px;
+  }
+
+  .mobile-controls {
+    display: flex;
   }
 }

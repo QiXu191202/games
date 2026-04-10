@@ -18,7 +18,9 @@ export function GameUI({
   onStart,
   onPause,
   onResume,
-  onReset
+  onReset,
+  onLeftBtn,
+  onRightBtn
 }) {
   return (
     <>
@@ -40,6 +42,28 @@ export function GameUI({
         {gameState !== 'idle' && (
           <button className="restart-btn" onClick={onReset}>重新开始</button>
         )}
+      </div>
+      <div className="mobile-controls">
+        <button
+          className="mobile-btn left-btn"
+          onMouseDown={() => onLeftBtn?.(true)}
+          onMouseUp={() => onLeftBtn?.(false)}
+          onMouseLeave={() => onLeftBtn?.(false)}
+          onTouchStart={(e) => { e.preventDefault(); onLeftBtn?.(true); }}
+          onTouchEnd={(e) => { e.preventDefault(); onLeftBtn?.(false); }}
+        >
+          ◀
+        </button>
+        <button
+          className="mobile-btn right-btn"
+          onMouseDown={() => onRightBtn?.(true)}
+          onMouseUp={() => onRightBtn?.(false)}
+          onMouseLeave={() => onRightBtn?.(false)}
+          onTouchStart={(e) => { e.preventDefault(); onRightBtn?.(true); }}
+          onTouchEnd={(e) => { e.preventDefault(); onRightBtn?.(false); }}
+        >
+          ▶
+        </button>
       </div>
       <div className="controls-hint">
         方向键/WASD 移动 | 触摸滑动控制

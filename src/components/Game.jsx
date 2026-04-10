@@ -44,6 +44,14 @@ export function useGameController(onGameOver) {
     moveStateRef.current = direction;
   }, []);
 
+  const handleMobileLeft = useCallback((pressed) => {
+    moveStateRef.current = { ...moveStateRef.current, left: pressed };
+  }, []);
+
+  const handleMobileRight = useCallback((pressed) => {
+    moveStateRef.current = { ...moveStateRef.current, right: pressed };
+  }, []);
+
   const handleStart = useCallback(() => {
     start();
     gameActiveRef.current = true;
@@ -223,6 +231,8 @@ export function useGameController(onGameOver) {
     handleStart,
     handlePause,
     handleResume,
-    handleReset
+    handleReset,
+    handleMobileLeft,
+    handleMobileRight
   };
 }
