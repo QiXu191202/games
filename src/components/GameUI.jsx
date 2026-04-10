@@ -35,7 +35,7 @@ export function GameControls({
   onRightBtn
 }) {
   return (
-    <>
+    <div className="game-controls">
       <div className="button-row">
         {gameState === 'idle' && (
           <button className="start-btn" onClick={onStart}>开始</button>
@@ -75,6 +75,6 @@ export function GameControls({
       <div className="controls-hint">
         方向键/WASD 移动 | 触摸滑动控制
       </div>
-    </>
+    </div>
   );
 }
