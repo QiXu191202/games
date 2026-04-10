@@ -49,7 +49,9 @@ function App() {
         formattedTime={formattedTime}
         gameState={gameState}
       />
-      <GameCanvas canvasRef={canvasRef} />
+      <div className="game-canvas-container">
+        <GameCanvas canvasRef={canvasRef} />
+      </div>
       <GameControls
         gameState={gameState}
         onStart={onStart}
