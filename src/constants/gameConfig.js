@@ -31,8 +31,17 @@ export const OBSTACLE_CONFIG = {
 export const REWARD_CONFIG = {
   SIZE: 25,
   SPAWN_INTERVAL: 70,
-  SCORE_VALUE: 10
+  SIZE_MIN: 20,
+  SIZE_MAX: 40
 };
+
+export const REWARD_LEVELS = [
+  { score: 1, size: 20, color: '#86EFAC', particleCount: 6, shakeIntensity: 0 },
+  { score: 2, size: 24, color: '#4ADE80', particleCount: 8, shakeIntensity: 0 },
+  { score: 3, size: 28, color: '#22C55E', particleCount: 10, shakeIntensity: 3 },
+  { score: 4, size: 34, color: '#FACC15', particleCount: 14, shakeIntensity: 5, sound: true },
+  { score: 5, size: 40, color: '#F97316', particleCount: 18, shakeIntensity: 8, sound: true, vibrate: true }
+];
 
 export const CAR_BOUNDARY = {
   HORIZONTAL_MARGIN: 15,
