@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import './App.css';
 import { useGameController } from '@/components/Game';
-import { GameCanvas, GameUI } from '@/components/GameUI';
+import { GameCanvas, GameUI, GameControls } from '@/components/GameUI';
 
 function App() {
   const [gameState, setGameState] = useState('idle');
@@ -48,6 +48,10 @@ function App() {
         score={score}
         formattedTime={formattedTime}
         gameState={gameState}
+      />
+      <GameCanvas canvasRef={canvasRef} />
+      <GameControls
+        gameState={gameState}
         onStart={onStart}
         onPause={onPause}
         onResume={onResume}
@@ -55,7 +59,6 @@ function App() {
         onLeftBtn={handleMobileLeft}
         onRightBtn={handleMobileRight}
       />
-      <GameCanvas canvasRef={canvasRef} />
     </section>
   );
 }

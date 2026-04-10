@@ -14,6 +14,18 @@ export function GameCanvas({ canvasRef }) {
 export function GameUI({
   score,
   formattedTime,
+  gameState
+}) {
+  return (
+    <div className="score-display">
+      <span>分数: {score}</span>
+      <span className="time-display">{formattedTime}</span>
+      {gameState === 'gameover' && <span className="game-over">游戏结束</span>}
+    </div>
+  );
+}
+
+export function GameControls({
   gameState,
   onStart,
   onPause,
@@ -24,11 +36,6 @@ export function GameUI({
 }) {
   return (
     <>
-      <div className="score-display">
-        <span>分数: {score}</span>
-        <span className="time-display">{formattedTime}</span>
-        {gameState === 'gameover' && <span className="game-over">游戏结束</span>}
-      </div>
       <div className="button-row">
         {gameState === 'idle' && (
           <button className="start-btn" onClick={onStart}>开始</button>

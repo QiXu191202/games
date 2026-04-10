@@ -45,11 +45,11 @@ export function useGameController(onGameOver) {
   }, []);
 
   const handleMobileLeft = useCallback((pressed) => {
-    moveStateRef.current = { ...moveStateRef.current, left: pressed };
+    moveStateRef.current = { ...moveStateRef.current, left: pressed, mobileSpeed: pressed ? GAME_CONFIG.CAR_MOBILE_SPEED : 0 };
   }, []);
 
   const handleMobileRight = useCallback((pressed) => {
-    moveStateRef.current = { ...moveStateRef.current, right: pressed };
+    moveStateRef.current = { ...moveStateRef.current, right: pressed, mobileSpeed: pressed ? GAME_CONFIG.CAR_MOBILE_SPEED : 0 };
   }, []);
 
   const handleStart = useCallback(() => {
@@ -167,10 +167,11 @@ export function useGameController(onGameOver) {
       const move = moveStateRef.current;
 
       if (gameActiveRef.current) {
-        if (move.up) car.y = Math.max(CAR_BOUNDARY.VERTICAL_MARGIN, car.y - GAME_CONFIG.CAR_SPEED);
-        if (move.down) car.y = Math.min(canvas.height - car.height - CAR_BOUNDARY.VERTICAL_MARGIN, car.y + GAME_CONFIG.CAR_SPEED);
-        if (move.left) car.x = Math.max(CAR_BOUNDARY.HORIZONTAL_MARGIN, car.x - GAME_CONFIG.CAR_SPEED);
-        if (move.right) car.x = Math.min(canvas.width - car.width - CAR_BOUNDARY.HORIZONTAL_MARGIN, car.x + GAME_CONFIG.CAR_SPEED);
+        const speed = move.mobileSpeed || GAME_CONFIG.CAR_SPEED;
+        if (move.up) car.y = Math.max(CAR_BOUNDARY.VERTICAL_MARGIN, car.y - speed);
+        if (move.down) car.y = Math.min(canvas.height - car.height - CAR_BOUNDARY.VERTICAL_MARGIN, car.y + speed);
+        if (move.left) car.x = Math.max(CAR_BOUNDARY.HORIZONTAL_MARGIN, car.x - speed);
+        if (move.right) car.x = Math.min(canvas.width - car.width - CAR_BOUNDARY.HORIZONTAL_MARGIN, car.x + speed);
 
         const { obstacles, rewards } = updateObjects(GAME_CONFIG.SCROLL_SPEED, handleCollectReward);
 

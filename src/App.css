@@ -95,15 +95,15 @@
 }
 
 .mobile-controls {
-  display: none;
-  gap: 80px;
-  margin-top: 8px;
+  display: flex;
+  gap: 120px;
+  margin-top: 12px;
 }
 
 .mobile-btn {
-  width: 64px;
-  height: 64px;
-  font-size: 28px;
+  width: 72px;
+  height: 72px;
+  font-size: 32px;
   color: white;
   background: #374151;
   border: none;
@@ -113,6 +113,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
 }
 
 .mobile-btn:active {
