@@ -78,6 +78,8 @@ export class ScreenShake {
   getOffset() {
     return { x: this.offsetX, y: this.offsetY };
   }
+
+  draw() {}
 }
 
 export class CollisionEffect {
