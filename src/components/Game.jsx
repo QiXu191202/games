@@ -6,9 +6,9 @@ import { drawRoad } from '@/utils/drawRoad';
 import { createBrickWallDrawer } from '@/utils/drawBrickWall';
 import { drawCar } from '@/utils/drawCar';
 import { drawRewards } from '@/utils/drawRewards';
-import { CollisionEffect, ScorePopup } from '@/utils/collisionEffects';
+import { CollisionEffect, ScorePopup, ScreenShake, soundManager } from '@/utils/collisionEffects';
 import { checkRectCollision } from '@/hooks/useCollisionDetection';
-import { GAME_CONFIG, CAR_BOUNDARY, OBSTACLE_CONFIG, REWARD_CONFIG } from '@/constants/gameConfig';
+import { GAME_CONFIG, CAR_BOUNDARY, OBSTACLE_CONFIG, REWARD_LEVELS } from '@/constants/gameConfig';
 import getRandomCar from '@/hooks/randomCar';
 import wallImage from '@/assets/wall-item.png';
 
@@ -42,6 +42,14 @@ export function useGameController(onGameOver) {
 
   const handleDirection = useCallback((direction) => {
     moveStateRef.current = direction;
+  }, []);
+
+  const handleMobileLeft = useCallback((pressed) => {
+    moveStateRef.current = { ...moveStateRef.current, left: pressed, mobileSpeed: pressed ? GAME_CONFIG.CAR_MOBILE_SPEED : 0 };
+  }, []);
+
+  const handleMobileRight = useCallback((pressed) => {
+    moveStateRef.current = { ...moveStateRef.current, right: pressed, mobileSpeed: pressed ? GAME_CONFIG.CAR_MOBILE_SPEED : 0 };
   }, []);
 
   const handleStart = useCallback(() => {
@@ -79,18 +87,35 @@ export function useGameController(onGameOver) {
       { x: car.x, y: car.y, width: car.width, height: car.height },
       { x: reward.x, y: reward.y, width: reward.size, height: reward.size }
     )) {
-      addScore(REWARD_CONFIG.SCORE_VALUE);
+      const levelConfig = REWARD_LEVELS[reward.level] || REWARD_LEVELS[0];
+      
+      addScore(levelConfig.score);
       effectsRef.current.push(
         new CollisionEffect(
           reward.x + reward.size / 2,
-          reward.y + reward.size / 2
+          reward.y + reward.size / 2,
+          reward.level
         ),
         new ScorePopup(
           reward.x + reward.size / 2,
           reward.y,
-          REWARD_CONFIG.SCORE_VALUE
+          levelConfig.score
         )
       );
+      
+      if (levelConfig.shakeIntensity > 0) {
+        effectsRef.current.push(new ScreenShake(levelConfig.shakeIntensity));
+      }
+      
+      if (levelConfig.sound) {
+        soundManager.init();
+        soundManager.playCollectSound(reward.level);
+      }
+      
+      if (levelConfig.vibrate) {
+        soundManager.vibrate([50, 30, 50]);
+      }
+      
       return true;
     }
     return false;
@@ -121,6 +146,17 @@ export function useGameController(onGameOver) {
 
     const animate = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      let shakeOffset = { x: 0, y: 0 };
+      for (const effect of effectsRef.current) {
+        if (effect instanceof ScreenShake) {
+          shakeOffset = effect.getOffset();
+          break;
+        }
+      }
+      
+      ctx.save();
+      ctx.translate(shakeOffset.x, shakeOffset.y);
 
       if (gameActiveRef.current) {
         roadOffsetRef.current += GAME_CONFIG.SCROLL_SPEED;
@@ -131,10 +167,11 @@ export function useGameController(onGameOver) {
       const move = moveStateRef.current;
 
       if (gameActiveRef.current) {
-        if (move.up) car.y = Math.max(CAR_BOUNDARY.VERTICAL_MARGIN, car.y - GAME_CONFIG.CAR_SPEED);
-        if (move.down) car.y = Math.min(canvas.height - car.height - CAR_BOUNDARY.VERTICAL_MARGIN, car.y + GAME_CONFIG.CAR_SPEED);
-        if (move.left) car.x = Math.max(CAR_BOUNDARY.HORIZONTAL_MARGIN, car.x - GAME_CONFIG.CAR_SPEED);
-        if (move.right) car.x = Math.min(canvas.width - car.width - CAR_BOUNDARY.HORIZONTAL_MARGIN, car.x + GAME_CONFIG.CAR_SPEED);
+        const speed = move.mobileSpeed || GAME_CONFIG.CAR_SPEED;
+        if (move.up) car.y = Math.max(CAR_BOUNDARY.VERTICAL_MARGIN, car.y - speed);
+        if (move.down) car.y = Math.min(canvas.height - car.height - CAR_BOUNDARY.VERTICAL_MARGIN, car.y + speed);
+        if (move.left) car.x = Math.max(CAR_BOUNDARY.HORIZONTAL_MARGIN, car.x - speed);
+        if (move.right) car.x = Math.min(canvas.width - car.width - CAR_BOUNDARY.HORIZONTAL_MARGIN, car.x + speed);
 
         const { obstacles, rewards } = updateObjects(GAME_CONFIG.SCROLL_SPEED, handleCollectReward);
 
@@ -160,6 +197,8 @@ export function useGameController(onGameOver) {
       }
 
       drawCar(ctx, car, carImage);
+
+      ctx.restore();
 
       for (let i = effectsRef.current.length - 1; i >= 0; i--) {
         if (!effectsRef.current[i].update()) {
@@ -193,6 +232,8 @@ export function useGameController(onGameOver) {
     handleStart,
     handlePause,
     handleResume,
-    handleReset
+    handleReset,
+    handleMobileLeft,
+    handleMobileRight
   };
 }

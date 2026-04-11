@@ -1,5 +1,5 @@
 import { useRef, useCallback } from 'react';
-import { GAME_CONFIG, OBSTACLE_CONFIG, REWARD_CONFIG } from '@/constants/gameConfig';
+import { GAME_CONFIG, OBSTACLE_CONFIG, REWARD_CONFIG, REWARD_LEVELS } from '@/constants/gameConfig';
 
 export function generateObstacle() {
   const width = OBSTACLE_CONFIG.MIN_WIDTH +
@@ -15,12 +15,15 @@ export function generateObstacle() {
 }
 
 export function generateReward() {
-  const { SIZE } = REWARD_CONFIG;
+  const levelIndex = Math.floor(Math.random() * REWARD_LEVELS.length);
+  const level = REWARD_LEVELS[levelIndex];
 
   return {
-    x: 30 + Math.random() * (GAME_CONFIG.WIDTH - SIZE - 60),
-    y: -SIZE - 20,
-    size: SIZE,
+    x: 30 + Math.random() * (GAME_CONFIG.WIDTH - level.size - 60),
+    y: -level.size - 20,
+    size: level.size,
+    score: level.score,
+    level: levelIndex,
     id: `reward-${Date.now()}-${Math.random()}`
   };
 }

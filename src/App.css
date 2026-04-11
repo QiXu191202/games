@@ -1,10 +1,20 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+}
+
 #center {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
@@ -15,10 +25,10 @@
   border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   max-width: 100%;
-  height: auto;
 }
 
 .score-display {
+  flex-shrink: 0;
   display: flex;
   gap: 20px;
   font-size: 20px;
@@ -35,6 +45,30 @@
 
 .score-display .time-display {
   color: #6B7280;
+}
+
+.game-canvas-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 8px 0;
+}
+
+.game-canvas-container canvas {
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.game-controls {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0 16px;
+  gap: 8px;
 }
 
 .button-row {
@@ -94,13 +128,36 @@
   text-align: center;
 }
 
-@media (max-width: 480px) {
-  #game {
-    width: 100%;
-    max-width: 400px;
-    height: auto;
-  }
+.mobile-controls {
+  display: flex;
+  justify-content: center;
+  gap: 100px;
+}
 
+.mobile-btn {
+  width: 64px;
+  height: 64px;
+  font-size: 28px;
+  color: white;
+  background: #374151;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.1s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.mobile-btn:active {
+  background: #1F2937;
+  transform: scale(0.95);
+}
+
+@media (max-width: 480px) {
   .score-display {
     font-size: 16px;
     padding: 8px 16px;
@@ -122,5 +179,15 @@
   .restart-btn {
     padding: 10px 24px;
     font-size: 14px;
+  }
+
+  .mobile-controls {
+    gap: 80px;
+  }
+
+  .mobile-btn {
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
   }
 }
