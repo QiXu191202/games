@@ -20,7 +20,7 @@ const getObstacleWidth = () => {
     Math.random() * (OBSTACLE_CONFIG.MAX_WIDTH - OBSTACLE_CONFIG.MIN_WIDTH);
 };
 
-export function generateObstacle() {
+export function generateObstacle(isMovingObstacle = false) {
   const lanes = divideRoadIntoLanes();
   const carSize = GAME_CONFIG.CAR_SIZE;
   const minPassageWidth = carSize + 20;
@@ -187,6 +187,7 @@ export function useGameObjects() {
   const collectedRewardsRef = useRef(new Set());
   const spawnTimerRef = useRef(0);
   const rewardSpawnTimerRef = useRef(0);
+  const obstacleCountRef = useRef(0);
 
   const reset = useCallback(() => {
     obstaclesRef.current = [];
@@ -194,20 +195,40 @@ export function useGameObjects() {
     collectedRewardsRef.current = new Set();
     spawnTimerRef.current = 0;
     rewardSpawnTimerRef.current = 0;
+    obstacleCountRef.current = 0;
   }, []);
 
   const update = useCallback((scrollSpeed, onCollectReward) => {
     spawnTimerRef.current++;
     if (spawnTimerRef.current >= OBSTACLE_CONFIG.SPAWN_INTERVAL) {
-      const obstacle = generateObstacle();
+      obstacleCountRef.current++;
+      const isMovingObstacle = obstacleCountRef.current % 10 === 0;
+      const obstacle = generateObstacle(isMovingObstacle);
+      
+      if (isMovingObstacle && obstacle) {
+        obstacle.moving = true;
+        obstacle.moveRange = 30 + Math.random() * 20;
+        obstacle.moveSpeed = 1.5 + Math.random() * 1;
+        obstacle.movePhase = 0;
+        obstacle.initialX = obstacle.x;
+      }
+      
       obstaclesRef.current.push(obstacle);
       if (obstacle.pairedObstacle) {
-        obstaclesRef.current.push({
+        const paired = {
           ...obstacle.pairedObstacle,
           x: obstacle.pairedObstacle.x,
           y: obstacle.y,
           id: `obstacle-${Date.now()}-${Math.random()}`
-        });
+        };
+        if (isMovingObstacle) {
+          paired.moving = true;
+          paired.moveRange = 30 + Math.random() * 20;
+          paired.moveSpeed = 1.5 + Math.random() * 1;
+          paired.movePhase = Math.PI;
+          paired.initialX = paired.x;
+        }
+        obstaclesRef.current.push(paired);
       }
       spawnTimerRef.current = 0;
     }
@@ -220,6 +241,11 @@ export function useGameObjects() {
 
     obstaclesRef.current = obstaclesRef.current.filter(obstacle => {
       obstacle.y += scrollSpeed;
+      if (obstacle.moving) {
+        obstacle.movePhase += obstacle.moveSpeed * 0.05;
+        const offset = Math.sin(obstacle.movePhase) * obstacle.moveRange;
+        obstacle.x = Math.max(ROAD_LEFT, Math.min(ROAD_RIGHT - obstacle.width, obstacle.initialX + offset));
+      }
       return obstacle.y <= GAME_CONFIG.HEIGHT;
     });
 
