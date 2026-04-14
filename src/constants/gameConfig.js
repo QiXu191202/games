@@ -36,12 +36,20 @@ export const REWARD_CONFIG = {
   SIZE_MAX: 40
 };
 
+export const REWARD_TYPES = {
+  SCORE: 'score',
+  SPEED_UP: 'speed_up',
+  SPEED_DOWN: 'speed_down'
+};
+
 export const REWARD_LEVELS = [
-  { score: 1, size: 20, color: '#86EFAC', particleCount: 6, shakeIntensity: 0 },
-  { score: 2, size: 24, color: '#4ADE80', particleCount: 8, shakeIntensity: 0 },
-  { score: 3, size: 28, color: '#22C55E', particleCount: 10, shakeIntensity: 3 },
-  { score: 4, size: 34, color: '#FACC15', particleCount: 14, shakeIntensity: 5, sound: true },
-  { score: 5, size: 40, color: '#F97316', particleCount: 18, shakeIntensity: 8, sound: true, vibrate: true }
+  { type: REWARD_TYPES.SCORE, score: 1, size: 20, color: '#86EFAC', particleCount: 6, shakeIntensity: 0 },
+  { type: REWARD_TYPES.SCORE, score: 2, size: 24, color: '#4ADE80', particleCount: 8, shakeIntensity: 0 },
+  { type: REWARD_TYPES.SCORE, score: 3, size: 28, color: '#22C55E', particleCount: 10, shakeIntensity: 3 },
+  { type: REWARD_TYPES.SCORE, score: 4, size: 34, color: '#FACC15', particleCount: 14, shakeIntensity: 5, sound: true },
+  { type: REWARD_TYPES.SCORE, score: 5, size: 40, color: '#F97316', particleCount: 18, shakeIntensity: 8, sound: true, vibrate: true },
+  { type: REWARD_TYPES.SPEED_UP, speedChange: 1, size: 28, color: '#EF4444', particleCount: 10, shakeIntensity: 0 },
+  { type: REWARD_TYPES.SPEED_DOWN, speedChange: -1, size: 28, color: '#3B82F6', particleCount: 10, shakeIntensity: 0 }
 ];
 
 export const CAR_BOUNDARY = {

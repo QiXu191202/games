@@ -22,7 +22,9 @@ export function generateReward() {
     x: 30 + Math.random() * (GAME_CONFIG.WIDTH - level.size - 60),
     y: -level.size - 20,
     size: level.size,
-    score: level.score,
+    score: level.score || 0,
+    speedChange: level.speedChange || 0,
+    type: level.type,
     level: levelIndex,
     id: `reward-${Date.now()}-${Math.random()}`
   };

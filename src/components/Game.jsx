@@ -8,9 +8,12 @@ import { drawCar } from '@/utils/drawCar';
 import { drawRewards } from '@/utils/drawRewards';
 import { CollisionEffect, ScorePopup, ScreenShake, soundManager } from '@/utils/collisionEffects';
 import { checkRectCollision } from '@/hooks/useCollisionDetection';
-import { GAME_CONFIG, CAR_BOUNDARY, OBSTACLE_CONFIG, REWARD_LEVELS } from '@/constants/gameConfig';
+import { GAME_CONFIG, CAR_BOUNDARY, OBSTACLE_CONFIG, REWARD_LEVELS, REWARD_TYPES } from '@/constants/gameConfig';
 import getRandomCar from '@/hooks/randomCar';
 import wallImage from '@/assets/wall-item.png';
+import rewardImage from '@/assets/jiangli.png';
+import speedUpImage from '@/assets/jiasu.png';
+import speedDownImage from '@/assets/jiansu.png';
 
 export function useGameController(onGameOver) {
   const canvasRef = useRef(null);
@@ -24,8 +27,12 @@ export function useGameController(onGameOver) {
   const moveStateRef = useRef({ up: false, down: false, left: false, right: false });
   const gameActiveRef = useRef(false);
   const roadOffsetRef = useRef(0);
+  const scrollSpeedRef = useRef(GAME_CONFIG.SCROLL_SPEED);
   const wallImageRef = useRef(null);
   const carImageRef = useRef(null);
+  const rewardImageRef = useRef(null);
+  const speedUpImageRef = useRef(null);
+  const speedDownImageRef = useRef(null);
   const effectsRef = useRef([]);
 
   const { reset: resetObjects, update: updateObjects } = useGameObjects();
@@ -77,6 +84,7 @@ export function useGameController(onGameOver) {
       height: GAME_CONFIG.CAR_SIZE
     };
     roadOffsetRef.current = 0;
+    scrollSpeedRef.current = GAME_CONFIG.SCROLL_SPEED;
     gameActiveRef.current = false;
     effectsRef.current = [];
   }, [resetTimer, resetObjects]);
@@ -89,17 +97,40 @@ export function useGameController(onGameOver) {
     )) {
       const levelConfig = REWARD_LEVELS[reward.level] || REWARD_LEVELS[0];
       
-      addScore(levelConfig.score);
+      if (levelConfig.type === REWARD_TYPES.SCORE) {
+        addScore(levelConfig.score);
+        effectsRef.current.push(
+          new ScorePopup(
+            reward.x + reward.size / 2,
+            reward.y,
+            levelConfig.score
+          )
+        );
+      } else if (levelConfig.type === REWARD_TYPES.SPEED_UP) {
+        scrollSpeedRef.current = Math.min(scrollSpeedRef.current + levelConfig.speedChange, 10);
+        effectsRef.current.push(
+          new ScorePopup(
+            reward.x + reward.size / 2,
+            reward.y,
+            'UP'
+          )
+        );
+      } else if (levelConfig.type === REWARD_TYPES.SPEED_DOWN) {
+        scrollSpeedRef.current = Math.max(scrollSpeedRef.current + levelConfig.speedChange, 1);
+        effectsRef.current.push(
+          new ScorePopup(
+            reward.x + reward.size / 2,
+            reward.y,
+            'DOWN'
+          )
+        );
+      }
+      
       effectsRef.current.push(
         new CollisionEffect(
           reward.x + reward.size / 2,
           reward.y + reward.size / 2,
           reward.level
-        ),
-        new ScorePopup(
-          reward.x + reward.size / 2,
-          reward.y,
-          levelConfig.score
         )
       );
       
@@ -126,6 +157,30 @@ export function useGameController(onGameOver) {
     wallImg.src = wallImage;
     wallImg.onload = () => {
       wallImageRef.current = wallImg;
+    };
+  }, []);
+
+  useEffect(() => {
+    const rewardImg = new Image();
+    rewardImg.src = rewardImage;
+    rewardImg.onload = () => {
+      rewardImageRef.current = rewardImg;
+    };
+  }, []);
+
+  useEffect(() => {
+    const speedUpImg = new Image();
+    speedUpImg.src = speedUpImage;
+    speedUpImg.onload = () => {
+      speedUpImageRef.current = speedUpImg;
+    };
+  }, []);
+
+  useEffect(() => {
+    const speedDownImg = new Image();
+    speedDownImg.src = speedDownImage;
+    speedDownImg.onload = () => {
+      speedDownImageRef.current = speedDownImg;
     };
   }, []);
 
@@ -159,7 +214,7 @@ export function useGameController(onGameOver) {
       ctx.translate(shakeOffset.x, shakeOffset.y);
 
       if (gameActiveRef.current) {
-        roadOffsetRef.current += GAME_CONFIG.SCROLL_SPEED;
+        roadOffsetRef.current += scrollSpeedRef.current;
       }
       drawRoad(ctx, canvas.width, canvas.height, roadOffsetRef.current);
 
@@ -173,7 +228,7 @@ export function useGameController(onGameOver) {
         if (move.left) car.x = Math.max(CAR_BOUNDARY.HORIZONTAL_MARGIN, car.x - speed);
         if (move.right) car.x = Math.min(canvas.width - car.width - CAR_BOUNDARY.HORIZONTAL_MARGIN, car.x + speed);
 
-        const { obstacles, rewards } = updateObjects(GAME_CONFIG.SCROLL_SPEED, handleCollectReward);
+        const { obstacles, rewards } = updateObjects(scrollSpeedRef.current, handleCollectReward);
 
         for (const obstacle of obstacles) {
           drawBrickWall(ctx, obstacle);
@@ -193,7 +248,11 @@ export function useGameController(onGameOver) {
           }
         }
 
-        drawRewards(ctx, rewards);
+        drawRewards(ctx, rewards, {
+          rewardImage: rewardImageRef.current,
+          speedUpImage: speedUpImageRef.current,
+          speedDownImage: speedDownImageRef.current
+        });
       }
 
       drawCar(ctx, car, carImage);
