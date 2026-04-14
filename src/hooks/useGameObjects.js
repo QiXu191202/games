@@ -1,67 +1,129 @@
 import { useRef, useCallback } from 'react';
 import { GAME_CONFIG, OBSTACLE_CONFIG, REWARD_CONFIG, REWARD_LEVELS } from '@/constants/gameConfig';
 
-export function generateObstacle() {
-  const minGap = GAME_CONFIG.CAR_SIZE + 10;
-  const roadWidth = GAME_CONFIG.WIDTH - 30;
-  const maxObstacleWidth = roadWidth - minGap;
+const ROAD_LEFT = 15;
+const ROAD_RIGHT = GAME_CONFIG.WIDTH - 15;
 
-  if (maxObstacleWidth <= OBSTACLE_CONFIG.MIN_WIDTH) {
-    const width = OBSTACLE_CONFIG.MIN_WIDTH;
+const divideRoadIntoLanes = () => {
+  const roadWidth = ROAD_RIGHT - ROAD_LEFT;
+  const laneWidth = roadWidth / 3;
+  return {
+    left: { start: ROAD_LEFT, end: ROAD_LEFT + laneWidth, center: ROAD_LEFT + laneWidth / 2 },
+    middle: { start: ROAD_LEFT + laneWidth, end: ROAD_LEFT + laneWidth * 2, center: ROAD_LEFT + laneWidth * 1.5 },
+    right: { start: ROAD_LEFT + laneWidth * 2, end: ROAD_RIGHT, center: ROAD_LEFT + laneWidth * 2.5 },
+    laneWidth
+  };
+};
+
+const getObstacleWidth = () => {
+  return OBSTACLE_CONFIG.MIN_WIDTH + 
+    Math.random() * (OBSTACLE_CONFIG.MAX_WIDTH - OBSTACLE_CONFIG.MIN_WIDTH);
+};
+
+export function generateObstacle() {
+  const lanes = divideRoadIntoLanes();
+  const carSize = GAME_CONFIG.CAR_SIZE;
+  const minPassageWidth = carSize + 20;
+
+  const pattern = Math.random();
+  
+  if (pattern < 0.25) {
+    const middleLane = lanes.middle;
+    const width = getObstacleWidth();
+    const maxWidth = Math.min(width, middleLane.end - middleLane.start - minPassageWidth);
     return {
-      x: 15 + Math.random() * (roadWidth - width),
+      x: middleLane.start + (middleLane.end - middleLane.start - maxWidth) / 2,
       y: -OBSTACLE_CONFIG.HEIGHT - 20,
-      width,
+      width: maxWidth,
       height: OBSTACLE_CONFIG.HEIGHT,
       id: `obstacle-${Date.now()}-${Math.random()}`
     };
   }
-
-  const useDoubleObstacle = Math.random() < 0.3;
   
-  if (useDoubleObstacle) {
-    const leftWidth = OBSTACLE_CONFIG.MIN_WIDTH + 
-      Math.random() * (OBSTACLE_CONFIG.MAX_WIDTH - OBSTACLE_CONFIG.MIN_WIDTH);
-    const rightWidth = OBSTACLE_CONFIG.MIN_WIDTH + 
-      Math.random() * (OBSTACLE_CONFIG.MAX_WIDTH - OBSTACLE_CONFIG.MIN_WIDTH);
+  if (pattern < 0.5) {
+    const leftWidth = getObstacleWidth();
+    const rightWidth = getObstacleWidth();
+    const passageWidth = lanes.middle.end - lanes.middle.start;
     
-    const totalWidth = leftWidth + rightWidth;
-    const maxTotalWidth = roadWidth - minGap;
-    const scale = Math.min(1, maxTotalWidth / totalWidth);
+    if (passageWidth >= minPassageWidth) {
+      return {
+        x: ROAD_LEFT,
+        y: -OBSTACLE_CONFIG.HEIGHT - 20,
+        width: leftWidth,
+        height: OBSTACLE_CONFIG.HEIGHT,
+        id: `obstacle-${Date.now()}-${Math.random()}`,
+        pairedObstacle: {
+          x: ROAD_RIGHT - rightWidth,
+          width: rightWidth,
+          height: OBSTACLE_CONFIG.HEIGHT
+        }
+      };
+    }
+  }
+  
+  if (pattern < 0.75) {
+    const leftLane = lanes.left;
+    const rightLane = lanes.right;
+    const width = lanes.laneWidth * 0.8;
     
-    const scaledLeftWidth = leftWidth * scale;
-    const scaledRightWidth = rightWidth * scale;
+    const leftX = leftLane.start + (lanes.laneWidth - width) / 2;
+    const rightX = rightLane.start + (lanes.laneWidth - width) / 2;
     
     return {
-      x: 15,
+      x: leftX,
       y: -OBSTACLE_CONFIG.HEIGHT - 20,
-      width: scaledLeftWidth,
+      width,
       height: OBSTACLE_CONFIG.HEIGHT,
       id: `obstacle-${Date.now()}-${Math.random()}`,
       pairedObstacle: {
-        x: GAME_CONFIG.WIDTH - 15 - scaledRightWidth,
-        width: scaledRightWidth,
+        x: rightX,
+        width,
         height: OBSTACLE_CONFIG.HEIGHT
       }
     };
   }
-
-  const side = Math.random() < 0.5 ? 'left' : 'right';
-  const maxSingleWidth = Math.min(OBSTACLE_CONFIG.MAX_WIDTH, maxObstacleWidth);
-  const width = OBSTACLE_CONFIG.MIN_WIDTH + 
-    Math.random() * (maxSingleWidth - OBSTACLE_CONFIG.MIN_WIDTH);
-
-  const x = side === 'left' 
-    ? 15 
-    : GAME_CONFIG.WIDTH - 15 - width;
-
-  return {
-    x,
-    y: -OBSTACLE_CONFIG.HEIGHT - 20,
-    width,
-    height: OBSTACLE_CONFIG.HEIGHT,
-    id: `obstacle-${Date.now()}-${Math.random()}`
+  
+  const middleWidth = getObstacleWidth() * 0.7;
+  const sideWidth = getObstacleWidth() * 0.5;
+  
+  const leftObstacle = {
+    x: lanes.left.start + (lanes.laneWidth - sideWidth) / 2,
+    width: sideWidth,
+    height: OBSTACLE_CONFIG.HEIGHT
   };
+  
+  const middleObstacle = {
+    x: lanes.middle.start + (lanes.laneWidth - middleWidth) / 2,
+    width: middleWidth,
+    height: OBSTACLE_CONFIG.HEIGHT
+  };
+  
+  const rightObstacle = {
+    x: lanes.right.start + (lanes.laneWidth - sideWidth) / 2,
+    width: sideWidth,
+    height: OBSTACLE_CONFIG.HEIGHT
+  };
+  
+  const config = Math.random();
+  if (config < 0.5) {
+    return {
+      x: leftObstacle.x,
+      y: -OBSTACLE_CONFIG.HEIGHT - 20,
+      width: leftObstacle.width,
+      height: OBSTACLE_CONFIG.HEIGHT,
+      id: `obstacle-${Date.now()}-${Math.random()}`,
+      pairedObstacle: middleObstacle
+    };
+  } else {
+    return {
+      x: middleObstacle.x,
+      y: -OBSTACLE_CONFIG.HEIGHT - 20,
+      width: middleObstacle.width,
+      height: OBSTACLE_CONFIG.HEIGHT,
+      id: `obstacle-${Date.now()}-${Math.random()}`,
+      pairedObstacle: rightObstacle
+    };
+  }
 }
 
 export function generateReward(obstacles = []) {
