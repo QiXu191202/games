@@ -2,11 +2,61 @@ import { useRef, useCallback } from 'react';
 import { GAME_CONFIG, OBSTACLE_CONFIG, REWARD_CONFIG, REWARD_LEVELS } from '@/constants/gameConfig';
 
 export function generateObstacle() {
-  const width = OBSTACLE_CONFIG.MIN_WIDTH +
-    Math.random() * (OBSTACLE_CONFIG.MAX_WIDTH - OBSTACLE_CONFIG.MIN_WIDTH);
+  const minGap = GAME_CONFIG.CAR_SIZE + 10;
+  const roadWidth = GAME_CONFIG.WIDTH - 30;
+  const maxObstacleWidth = roadWidth - minGap;
+
+  if (maxObstacleWidth <= OBSTACLE_CONFIG.MIN_WIDTH) {
+    const width = OBSTACLE_CONFIG.MIN_WIDTH;
+    return {
+      x: 15 + Math.random() * (roadWidth - width),
+      y: -OBSTACLE_CONFIG.HEIGHT - 20,
+      width,
+      height: OBSTACLE_CONFIG.HEIGHT,
+      id: `obstacle-${Date.now()}-${Math.random()}`
+    };
+  }
+
+  const useDoubleObstacle = Math.random() < 0.3;
+  
+  if (useDoubleObstacle) {
+    const leftWidth = OBSTACLE_CONFIG.MIN_WIDTH + 
+      Math.random() * (OBSTACLE_CONFIG.MAX_WIDTH - OBSTACLE_CONFIG.MIN_WIDTH);
+    const rightWidth = OBSTACLE_CONFIG.MIN_WIDTH + 
+      Math.random() * (OBSTACLE_CONFIG.MAX_WIDTH - OBSTACLE_CONFIG.MIN_WIDTH);
+    
+    const totalWidth = leftWidth + rightWidth;
+    const maxTotalWidth = roadWidth - minGap;
+    const scale = Math.min(1, maxTotalWidth / totalWidth);
+    
+    const scaledLeftWidth = leftWidth * scale;
+    const scaledRightWidth = rightWidth * scale;
+    
+    return {
+      x: 15,
+      y: -OBSTACLE_CONFIG.HEIGHT - 20,
+      width: scaledLeftWidth,
+      height: OBSTACLE_CONFIG.HEIGHT,
+      id: `obstacle-${Date.now()}-${Math.random()}`,
+      pairedObstacle: {
+        x: GAME_CONFIG.WIDTH - 15 - scaledRightWidth,
+        width: scaledRightWidth,
+        height: OBSTACLE_CONFIG.HEIGHT
+      }
+    };
+  }
+
+  const side = Math.random() < 0.5 ? 'left' : 'right';
+  const maxSingleWidth = Math.min(OBSTACLE_CONFIG.MAX_WIDTH, maxObstacleWidth);
+  const width = OBSTACLE_CONFIG.MIN_WIDTH + 
+    Math.random() * (maxSingleWidth - OBSTACLE_CONFIG.MIN_WIDTH);
+
+  const x = side === 'left' 
+    ? 15 
+    : GAME_CONFIG.WIDTH - 15 - width;
 
   return {
-    x: 15 + Math.random() * (GAME_CONFIG.WIDTH - width - 30),
+    x,
     y: -OBSTACLE_CONFIG.HEIGHT - 20,
     width,
     height: OBSTACLE_CONFIG.HEIGHT,
@@ -48,7 +98,16 @@ export function useGameObjects() {
   const update = useCallback((scrollSpeed, onCollectReward) => {
     spawnTimerRef.current++;
     if (spawnTimerRef.current >= OBSTACLE_CONFIG.SPAWN_INTERVAL) {
-      obstaclesRef.current.push(generateObstacle());
+      const obstacle = generateObstacle();
+      obstaclesRef.current.push(obstacle);
+      if (obstacle.pairedObstacle) {
+        obstaclesRef.current.push({
+          ...obstacle.pairedObstacle,
+          x: obstacle.pairedObstacle.x,
+          y: obstacle.y,
+          id: `obstacle-${Date.now()}-${Math.random()}`
+        });
+      }
       spawnTimerRef.current = 0;
     }
 
