@@ -19,12 +19,15 @@ export function drawRewards(ctx, rewards, images) {
 
     if (img && img.complete) {
       const drawSize = reward.size;
+      const centerX = reward.x + drawSize / 2;
+      const centerY = reward.y + drawSize / 2;
+      const srcSize = Math.min(img.width, img.height);
+      const srcX = (img.width - srcSize) / 2;
+      const srcY = (img.height - srcSize) / 2;
       ctx.drawImage(
         img,
-        reward.x,
-        reward.y,
-        drawSize,
-        drawSize
+        srcX, srcY, srcSize, srcSize,
+        reward.x, reward.y, drawSize, drawSize
       );
     } else {
       if (reward.level >= 3) {
