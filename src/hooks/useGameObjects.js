@@ -64,13 +64,52 @@ export function generateObstacle() {
   };
 }
 
-export function generateReward() {
+export function generateReward(obstacles = []) {
   const levelIndex = Math.floor(Math.random() * REWARD_LEVELS.length);
   const level = REWARD_LEVELS[levelIndex];
-
+  const padding = 10;
+  const minX = 30;
+  const maxX = GAME_CONFIG.WIDTH - level.size - 30;
+  
+  const checkOverlap = (x, y) => {
+    const rewardRect = {
+      left: x,
+      right: x + level.size,
+      top: y,
+      bottom: y + level.size
+    };
+    
+    for (const obstacle of obstacles) {
+      const obstacleRect = {
+        left: obstacle.x - padding,
+        right: obstacle.x + obstacle.width + padding,
+        top: obstacle.y - padding,
+        bottom: obstacle.y + obstacle.height + padding
+      };
+      
+      if (rewardRect.left < obstacleRect.right &&
+          rewardRect.right > obstacleRect.left &&
+          rewardRect.top < obstacleRect.bottom &&
+          rewardRect.bottom > obstacleRect.top) {
+        return true;
+      }
+    }
+    return false;
+  };
+  
+  let x = minX + Math.random() * (maxX - minX);
+  const y = -level.size - 20;
+  
+  for (let attempt = 0; attempt < 10; attempt++) {
+    if (!checkOverlap(x, y)) {
+      break;
+    }
+    x = minX + Math.random() * (maxX - minX);
+  }
+  
   return {
-    x: 30 + Math.random() * (GAME_CONFIG.WIDTH - level.size - 60),
-    y: -level.size - 20,
+    x,
+    y,
     size: level.size,
     score: level.score || 0,
     speedChange: level.speedChange || 0,
@@ -113,7 +152,7 @@ export function useGameObjects() {
 
     rewardSpawnTimerRef.current++;
     if (rewardSpawnTimerRef.current >= REWARD_CONFIG.SPAWN_INTERVAL) {
-      rewardsRef.current.push(generateReward());
+      rewardsRef.current.push(generateReward(obstaclesRef.current));
       rewardSpawnTimerRef.current = 0;
     }
 
